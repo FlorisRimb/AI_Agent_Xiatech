@@ -1,0 +1,42 @@
+services:
+  database:
+    build:
+      context: ./database
+      dockerfile: Dockerfile
+    container_name: database
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./database/init-mongo.js.template:/docker-entrypoint-initdb.d/init-mongo.js.template:ro
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: ${DATABASE_ROOT_PASSWORD}
+      DATABASE_NAME: ${DATABASE_NAME}
+      DATABASE_USER: ${DATABASE_USER}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+    networks:
+      - retail_network
+  back:
+    build:
+      context: ./back
+      dockerfile: Dockerfile
+    container_name: back
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./back:/app
+    environment:
+      MONGO_URL: mongodb://${DATABASE_USER}:${DATABASE_PASSWORD}@database:27017/${DATABASE_NAME}?authSource=admin
+    depends_on:
+      - database
+    networks:
+      - retail_network
+  
+
+networks:
+  retail_network:
+    driver: bridge
+
+volumes:
+  mongo_data:
