@@ -3,3 +3,12 @@ uvicorn[standard]==0.38.0
 motor==3.7.1
 pydantic==2.12.3
 python-dotenv==1.2.1
+
+
+pymongo
+pandas
+numpy
+transformers
+torch
+langchain
+httpx
