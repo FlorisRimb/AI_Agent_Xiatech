@@ -8,7 +8,6 @@ services:
       - "27017:27017"
     volumes:
       - ./database/init-mongo.js.template:/docker-entrypoint-initdb.d/init-mongo.js.template:ro
-      - ./database/init-retail_db.js.template:/docker-entrypoint-initdb.d/init-retail_db.js.template:ro
       - mongo_data:/data/db
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
@@ -28,7 +27,7 @@ services:
     volumes:
       - ./back:/app
     environment:
-      MONGO_URL: mongodb://${DATABASE_USER}:${DATABASE_PASSWORD}@database:27017/${DATABASE_NAME}?authSource=admin
+      MONGO_URL: mongodb://${DATABASE_USER}:${DATABASE_PASSWORD}@database:27017/${DATABASE_NAME}
     depends_on:
       - database
     networks:
