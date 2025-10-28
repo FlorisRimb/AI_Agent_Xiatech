@@ -28,7 +28,7 @@ services:
     volumes:
       - ./back:/app
     environment:
-      MONGO_URL: mongodb://${DATABASE_USER}:${DATABASE_PASSWORD}@database:27017/${DATABASE_NAME}?authSource=admin
+      MONGO_URL: mongodb://${DATABASE_USER}:${DATABASE_PASSWORD}@database:27017/${DATABASE_NAME}
     depends_on:
       - database
     networks:
