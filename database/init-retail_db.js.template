@@ -1,5 +1,5 @@
 /****************************************************
- * DATABASE: retail_db
+ * DATABASE: ${DATABASE_NAME}
  * DESCRIPTION:
  *   This script creates three MongoDB collections
  *   for a basic product and sales management system:
@@ -10,7 +10,7 @@
  ****************************************************/
 
 // Select or create the database
-use retail_db;
+db = db.getSiblingDB('${DATABASE_NAME}');
 
 /****************************************************
  * COLLECTION: products
