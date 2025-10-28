@@ -1,93 +1,94 @@
-# Project_Xiatech
+# Xiatech Agentic AI for Retail Integrations & Insights
 
+<center>
+<table>
+  <tr>
+    <td align="center">
+      <img src="https://www.bloomreach.com/wp-content/uploads/2024/05/xiatech_logo-rgb-pos---alex-green.png" width="200"/>
+    </td>
+    <td align="center">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/La_Rochelle_Universit%C3%A9.png/1200px-La_Rochelle_Universit%C3%A9.png" width="200"/>
+    </td>
+  </tr>
+</table>
+</center>
 
+---
 
-## Getting started
+## 📌 Project
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+This project was carried out as part of the partnership between **Xiatech** and **La Rochelle University**.  
+It aims to explore the emerging concept of **Agentic AI**, an artificial intelligence capable of **not only analyzing data**, but also **making autonomous decisions and executing actions** in a retail environment.
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+---
 
-## Add your files
+## 🎯 Objective
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+Build a **full prototype** that enables:
 
+- **Monitoring sales and stock levels** in near real-time.
+- **Automatically identifying at-risk products** likely to run out of stock.
+- **Autonomously generating purchase orders (POs)** for restocking.
+- **Synchronizing automatically with an e-commerce platform** (updating stock counts and product tags).
+- **Visualizing key performance indicators (KPIs)** through a React dashboard.
+- **Continuously optimizing** the agent's decisions using historical feedback.
+
+---
+
+## 🏗️ Project Architecture
+
+The project is based on a **full-stack architecture** with three main components:
+
+| Component              | Technology       | Description                                                                      |
+| ---------------------- | ---------------- | -------------------------------------------------------------------------------- |
+| **Database**           | MongoDB          | Stores synthetic data: products, sales, stock, purchase orders, agent actions    |
+| **Backend / Agent AI** | Python + FastAPI | Orchestrates autonomous workflows, calculates metrics, generates purchase orders |
+| **Frontend**           | React            | Dashboard to visualize sales, stock, at-risk products, and agent actions         |
+
+The system is orchestrated using **Docker Compose** for easy local deployment.
+
+---
+
+## ⚙️ Main Features
+
+1. **Daily sales and stock analysis**
+
+   - Aggregate sales by SKU
+   - Calculate remaining stock time before depletion
+   - Identify “at-risk” products (< 3 days of stock remaining)
+
+2. **Automated restocking**
+
+   - Generate **Purchase Orders** for at-risk products
+   - Record orders in MongoDB
+
+3. **E-commerce updates**
+
+   - Dynamically adjust stock levels
+   - Add or remove “at-risk” tags
+
+4. **Tracking and KPIs**
+
+   - Stockout rate
+   - Number and quantity of generated POs
+   - History of agent actions
+
+5. **Interactive user interface**
+   - React dashboard to visualize data
+   - Button to manually trigger the agent
+   - Real-time view of actions and metrics
+
+---
+
+## 🛠️ Installation & Setup
+
+1. **Clone the repository**
+
+```bash
+git clone git@gitlab.univ-lr.fr:project-xiatech/project_xiatech.git
+cd project_xiatech
 ```
-cd existing_repo
-git remote add origin https://gitlab.univ-lr.fr/project-xiatech/project_xiatech.git
-git branch -M main
-git push -uf origin main
-```
 
-## Integrate with your tools
+## 🙇 Author
 
-- [ ] [Set up project integrations](https://gitlab.univ-lr.fr/project-xiatech/project_xiatech/-/settings/integrations)
-
-## Collaborate with your team
-
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+**Lilian Mirabel – Florian Chapoullie-Pino – Luc Lacotte – Floris Rimbeau**
