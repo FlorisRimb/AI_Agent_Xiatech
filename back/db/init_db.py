@@ -1,6 +1,6 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
-from models.product import Product
+from models import Product, SalesTransaction
 from core.config import settings
 
 async def init_db():
@@ -9,6 +9,7 @@ async def init_db():
 
     await init_beanie(database=db, document_models=[
         Product,
+        SalesTransaction,
     ])
 
     print(f"Database initialized: {db.name}")

@@ -13,7 +13,7 @@ class Product(Document):
         use_state_management = True
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "sku": "SKU123",
                 "name": "Wireless Mouse",
