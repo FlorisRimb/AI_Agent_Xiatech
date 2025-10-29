@@ -1,8 +1,7 @@
 from fastapi import FastAPI
 import uvicorn
-
-from connect_database import get_database
-
+from data_generation.insert_data import insert_product, insert_sale, insert_stock
+from data_generation.synthetic_data_generator import generate_synthetic_data
 
 app = FastAPI()
 from db.init_db import init_db
@@ -31,9 +30,13 @@ async def health():
 @app.on_event("startup")
 async def on_startup():
     await init_db()
+    
+    # Insert synthetic data
+    products_df, sales_df, stock_df = generate_synthetic_data()
+    await insert_product(products_df)
+    await insert_sale(sales_df)
+    await insert_stock(stock_df)
 
 
 if __name__ == "__main__":
-    get_database()
-    uvicorn.run(app, host="0.0.0.0", port=8000)
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
