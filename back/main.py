@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 import uvicorn
+
+app = FastAPI()
 from db.init_db import init_db
 from api.router import router
 from core.config import settings
@@ -26,7 +28,6 @@ async def health():
 @app.on_event("startup")
 async def on_startup():
     await init_db()
-
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
