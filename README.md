@@ -95,6 +95,12 @@ cd project_xiatech
 docker compose up -d --build
 ```
 
+3. **To add the generated data to the database, execute this command**
+
+```bash
+docker exec -it back python3 data_generation/insert_data.py
+```
+
 ---
 
 ## 🌐 Service URLs
