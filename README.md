@@ -89,6 +89,71 @@ git clone git@gitlab.univ-lr.fr:project-xiatech/project_xiatech.git
 cd project_xiatech
 ```
 
+2. **Build and start all services**
+
+```bash
+docker compose up -d --build
+```
+
+---
+
+## 🌐 Service URLs
+
+| Service                  | URL                         | Port  | Description                   |
+| ------------------------ | --------------------------- | ----- | ----------------------------- |
+| **🔧 Backend API**       | http://localhost:8000       | 8000  | FastAPI REST API              |
+| **📚 API Documentation** | http://localhost:8000/docs  | 8000  | Interactive Swagger UI        |
+| **📖 API ReDoc**         | http://localhost:8000/redoc | 8000  | Alternative API documentation |
+| **💾 Database Admin**    | http://localhost:8081       | 8081  | Mongo Express interface       |
+| **🗄️ MongoDB Direct**    | mongodb://localhost:27017   | 27017 | Direct database connection    |
+
+### API Endpoints
+
+| Endpoint               | URL                                | Method | Description              |
+| ---------------------- | ---------------------------------- | ------ | ------------------------ |
+| **Products**           | http://localhost:8000/api/products | GET    | List all products        |
+| **Sales Transactions** | http://localhost:8000/api/sales    | GET    | List sales transactions  |
+| **Stock Levels**       | http://localhost:8000/api/stock    | GET    | Get current stock levels |
+| **Health Check**       | http://localhost:8000/health       | GET    | API health status        |
+
+### Database Access
+
+**Mongo Express Login:**
+
+- Username: `admin`
+- Password: `admin`
+
+**MongoDB Connection:**
+
+- Host: `localhost`
+- Port: `27017`
+- Database: `retail_db`
+- Auth: `admin` database
+
+---
+
+## 🐳 Docker Management
+
+```bash
+# Start all services
+docker compose up -d
+
+# View logs
+docker compose logs -f
+
+# Restart specific service
+docker compose restart back
+
+# Stop all services
+docker compose down
+
+# Rebuild after changes
+docker compose build back
+docker compose up back -d
+```
+
+---
+
 ## 🙇 Author
 
 **Lilian Mirabel – Florian Chapoullie-Pino – Luc Lacotte – Floris Rimbeau**
