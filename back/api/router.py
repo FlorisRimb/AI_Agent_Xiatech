@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from .endpoints import products, sales_transactions, stock_levels
+from .endpoints import products, sales_transactions, stock_levels, product_orders
 
 router = APIRouter()
 router.include_router(products.router, prefix="/products", tags=["products"])
