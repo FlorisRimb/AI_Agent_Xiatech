@@ -1,7 +1,7 @@
 from llama_cpp import Llama
 
 # Path to your quantized GGUF model
-MODEL_PATH = "./models/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
+MODEL_PATH = "/app/models/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
 
 # Initialize model (loads into memory)
 llm = Llama(

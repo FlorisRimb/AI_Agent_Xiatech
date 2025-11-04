@@ -58,8 +58,7 @@ services:
     ports:
       - "5001:5001"
     volumes:
-      - ./llm/models:/app/models
-      - ./llm:/app
+      - ./llm/app_llm:/app/app_llm
     networks:
       - retail_network
 
