@@ -59,10 +59,15 @@ services:
       - "5001:5001"
     volumes:
       - ./llm:/app
+      - llm_models:/app/models
+    environment:
+      FASTAPI_URL: "http://back:8000/api"
     networks:
       - retail_network
     depends_on:
       - back
+    stdin_open: true
+    tty: true
 
 networks:
   retail_network:
@@ -70,3 +75,4 @@ networks:
 
 volumes:
   mongo_data:
+  llm_models:
