@@ -50,6 +50,18 @@ services:
     networks:
       - retail_network
 
+  llm:
+    build:
+      context: ./llm
+      dockerfile: Dockerfile
+    container_name: llm
+    ports:
+      - "5001:5001"
+    volumes:
+      - ./llm/app_llm:/app/app_llm
+    networks:
+      - retail_network
+
 networks:
   retail_network:
     driver: bridge
