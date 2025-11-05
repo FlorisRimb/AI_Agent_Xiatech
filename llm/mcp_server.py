@@ -4,7 +4,7 @@ from datetime import datetime
 from http import HTTPStatus
 from httpx import AsyncClient
 
-FASTAPI_BASE_URL = "http://localhost:8000/api"
+FASTAPI_BASE_URL = "http://back/api"
 
 mcp = FastMCP("retail-agent-mcp")
 
@@ -33,5 +33,4 @@ async def on_initialized(params):
 
 if __name__ == "__main__":
     print("Server starting...")
-    print(f"Tools: {list(mcp._tool.keys())}")
     mcp.run()
