@@ -17,13 +17,13 @@ async def get_products_soon_out_of_stock(days: int = 3):
     for product in products:
         transactions = await SalesTransaction.find(
             SalesTransaction.sku == product.sku,
-            SalesTransaction.timestamp >= datetime.utcnow() - timedelta(days=days))
-            .to_list()
+            SalesTransaction.timestamp >= datetime.utcnow() - timedelta(days=days)
+        ).to_list()
         total_sold = sum(tr.quantity for tr in transactions)
 
         stock_level = await StockLevel.find_one(StockLevel.sku == product.sku)
         if stock_level:
-            projected_stock = stock_level.quantity - total_sold
+            projected_stock = stock_level.stock_on_hand - total_sold
             if projected_stock <= 0:
                 products_soon_out_of_stock.append(product)            
     

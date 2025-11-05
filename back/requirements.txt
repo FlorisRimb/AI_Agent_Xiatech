@@ -8,3 +8,4 @@ pydantic-settings==2.7.0
 pandas
 numpy
 httpx
+mcp==1.20.0
