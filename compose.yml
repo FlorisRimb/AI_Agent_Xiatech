@@ -50,9 +50,29 @@ services:
     networks:
       - retail_network
 
+  llm:
+    build:
+      context: ./llm
+      dockerfile: Dockerfile
+    container_name: llm
+    ports:
+      - "5001:5001"
+    volumes:
+      - ./llm:/app
+      - llm_models:/app/models
+    environment:
+      FASTAPI_URL: "http://back:8000/api"
+    networks:
+      - retail_network
+    depends_on:
+      - back
+    stdin_open: true
+    tty: true
+
 networks:
   retail_network:
     driver: bridge
 
 volumes:
   mongo_data:
+  llm_models:
