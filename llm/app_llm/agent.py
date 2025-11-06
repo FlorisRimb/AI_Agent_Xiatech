@@ -3,6 +3,9 @@ from llama_cpp import Llama
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 import json
+from typing import List, Dict
+import re as regex
+
 
 
 class RetailInventoryAgent:
@@ -17,9 +20,12 @@ class RetailInventoryAgent:
         )
         print("[Agent] Model loaded successfully")
     
-    async def run_with_tools(self, user_query: str, previous_response: str) -> str:
+    async def run_with_tools(self, user_query: str, history: List[Dict] = None) -> str:
         """Run the agent with access to MCP tools."""
         print(f"\n[Agent] User query: {user_query}")
+        
+        if history is None:
+            history = []
         
         server_params = StdioServerParameters(
             command="python",
@@ -36,7 +42,8 @@ class RetailInventoryAgent:
                 print(f"[Agent] Available tools: {available_tools}")
                 
                 system_prompt = self._build_system_prompt(tools_response.tools)
-                full_prompt = f"{system_prompt}\n\nPrevious answer: {previous_response}\n\nUser: {user_query}\n\nAssistant:"
+                
+                full_prompt = self._build_prompt_with_history(system_prompt, history, user_query)
                 
                 print("[Agent] Generating response...")
                 response = self.llm(
@@ -61,18 +68,33 @@ class RetailInventoryAgent:
                     
                     print(f"[Agent] Tool result: {result}")
                     
-                    final_prompt = f"{full_prompt}\n\nTool result:{result.content}\n\nProvide a natural response to the user:\n\nAssistant:"
+                    result_text = result.content[0].text if result.content else str(result)
+                    
+                    final_prompt = self._build_prompt_with_history(system_prompt, history, user_query)
+                    final_prompt += f"\n\n[Tool {tool_name} returned the following data]:\n{result_text}\n\nBased on this data, provide a clear and natural answer to the user's question:\n\nAssistant:"
                     
                     final_response = self.llm(
                         final_prompt,
                         max_tokens=256,
                         temperature=0.5,
-                        stop=["User:", "\n\n"],
+                        stop=["User:", "TOOL_CALL:", "\n\n"],
                     )
                     
                     return final_response['choices'][0]['text'].strip()
                 
                 return assistant_response
+    
+    def _build_prompt_with_history(self, system_prompt: str, history: List[Dict], current_query: str) -> str:
+        """Construire le prompt avec l'historique."""
+        prompt = system_prompt + "\n\n"
+        
+        for item in history:
+            prompt += f"User: {item['query']}\n\n"
+            prompt += f"Assistant: {item['response']}\n\n"
+        
+        prompt += f"User: {current_query}\n\nAssistant:"
+        
+        return prompt
     
     def _build_system_prompt(self, tools):
         """Build system prompt with available tools."""
@@ -85,14 +107,15 @@ class RetailInventoryAgent:
 
 {tools_desc}
 
-To use a tool, respond with: TOOL_CALL: tool_name(arg1=value1, arg2=value2)
+To use a tool, respond ONLY with: TOOL_CALL: tool_name(arg1=value1, arg2=value2)
 
 For example:
 TOOL_CALL: get_products_soon_out_of_stock(days=5)
 
-You will probably always need to use tools to answer user queries effectively, don't answer won't you don't have enough information and use tools.
-
-And when answering, summarize information with what previous informations and tool results you have."""
+When you receive tool results, provide a clear and natural answer based on the data.
+Do NOT repeat the TOOL_CALL in your final answer.
+Always use tools to gather data before answering.
+"""
     
     def _parse_tool_call(self, text: str):
         """Parse tool call from LLM response."""
@@ -108,39 +131,37 @@ And when answering, summarize information with what previous informations and to
             
             if args_str:
                 for arg in args_str.split(","):
-                    key, value = arg.split("=")
+                    if not arg.strip():
+                        continue
+                    
+                    key, value = arg.split("=", 1)
                     key = key.strip()
-                    value = value.strip().strip("'\"")
+                    value = value.strip()
                     
                     try:
-                        value = int(value)
+                        args[key] = json.loads(value)
+                        continue
+                    except:
+                        pass
+                    
+                    value = value.strip("'\"")
+                    if value[0] == "[" and value[-1] == "]":
+                        args_str_fixed = regex.sub(r"'([^']*)'", r'"\1"', value)
+                        try:
+                            args[key] = json.loads(args_str_fixed)
+                            continue
+                        except:
+                            pass
+                    
+                    try:
+                        args[key] = int(value)
+                        continue
                     except:
                         pass
                     
                     args[key] = value
             
             return {"name": tool_name, "arguments": args}
-        except:
+        except Exception as e:
+            print(f"[Agent] Error parsing tool call: {e}")
             return None
-
-
-async def main():
-    agent = RetailInventoryAgent("/app/models/mistral-7b-instruct-v0.2.Q4_K_M.gguf")
-    
-    queries = [
-        "Which products are likely to run out of stock in the next 3 days?",
-        "Using the previous information, get the current stock level for the product on the list of products soon to be out of stock.",
-        "Using the current stock level, get the daily sales data for the product over the past 3 days.",
-        "Using the previous information, order a sufficient quantity of the 1st product to restock and last for at least a week.",
-    ]
-    
-    response = ""
-    for query in queries:
-        print("\n" + "="*60)
-        response = await agent.run_with_tools(query, response)
-        print(f"\n[Final Answer] {response}")
-        print("="*60)
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
