@@ -6,6 +6,8 @@ from models.product_order import ProductOrder
 from typing import List, Dict
 from datetime import datetime, timedelta
 from pydantic import BaseModel
+import subprocess
+import json
 
 router = APIRouter()
 
@@ -27,20 +29,18 @@ class StockLevelRequest(BaseModel):
 async def get_products_soon_out_of_stock(days: int = 3):
     """Get products that will be out of stock within the next 'days' days."""
     products_soon_out_of_stock = []
-    threshold_date = datetime.utcnow() + timedelta(days=days)
     products = await Product.find_all().to_list()
+    
     for product in products:
-        transactions = await SalesTransaction.find(
-            SalesTransaction.sku == product.sku,
-            SalesTransaction.timestamp >= datetime.utcnow() - timedelta(days=days)
-        ).to_list()
-        total_sold = sum(tr.quantity for tr in transactions)
-
+        # Obtenir le niveau de stock actuel
         stock_level = await StockLevel.find_one(StockLevel.sku == product.sku)
-        if stock_level:
-            projected_stock = stock_level.stock_on_hand - total_sold
-            if projected_stock <= 0:
-                products_soon_out_of_stock.append(product)            
+        if not stock_level:
+            continue
+            
+        current_stock = stock_level.stock_on_hand
+        
+        if current_stock < 50:
+            products_soon_out_of_stock.append(product)
     
     return products_soon_out_of_stock
 
