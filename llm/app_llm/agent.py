@@ -1,23 +1,27 @@
 import asyncio
-from llama_cpp import Llama
+#from llama_cpp import Llama
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 import json
 from typing import List, Dict
 import re as regex
-
+from dotenv import load_dotenv
+import google.generativeai as genai
 
 
 class RetailInventoryAgent:
     """LLM Agent with MCP tools for retail inventory management."""
     
     def __init__(self, model_path: str):
-        print(f"[Agent] Loading model from {model_path}")
-        self.llm = Llama(
+        #print(f"[Agent] Loading model from {model_path}")
+        """self.llm = Llama(
             model_path=model_path,
             n_ctx=4096,
             verbose=False,
-        )
+        )"""
+        api_key = load_dotenv()
+        genai.configure(api_key=api_key)
+        self.llm = genai.GenerativeModel("models/gemini-2.5-flash-lite")
         print("[Agent] Model loaded successfully")
     
     async def run_with_tools(self, user_query: str, history: List[Dict] = None) -> str:
@@ -46,14 +50,15 @@ class RetailInventoryAgent:
                 full_prompt = self._build_prompt_with_history(system_prompt, history, user_query)
                 
                 print("[Agent] Generating response...")
-                response = self.llm(
+                """response = self.llm(
                     full_prompt,
                     max_tokens=512,
                     temperature=0.7,
                     stop=["User:", "\n\n"],
-                )
+                )"""
+                response = self.llm.generate_content(full_prompt)
                 
-                assistant_response = response['choices'][0]['text'].strip()
+                assistant_response = response.text.strip()
                 print(f"[Agent] LLM Response: {assistant_response}")
                 
                 tool_call = self._parse_tool_call(assistant_response)

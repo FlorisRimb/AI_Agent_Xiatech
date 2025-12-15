@@ -1,5 +1,5 @@
-huggingface-hub
-llama-cpp-python
+#huggingface-hub
+#llama-cpp-python
 mcp==1.20.0
 fastapi==0.120.0
 uvicorn[standard]
@@ -7,3 +7,5 @@ motor
 beanie==2.0.0
 pydantic
 httpx
+google-generativeai
+python-dotenv
