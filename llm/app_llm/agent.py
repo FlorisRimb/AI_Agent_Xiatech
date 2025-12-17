@@ -196,7 +196,6 @@ Assistant:"""
                 # If we exhausted iterations, return last response
                 print("[Agent] Max iterations reached")
                 final_response = self._clean_response(current_response) if current_response else "Max iterations reached without completion"
-                await self._save_to_history(final_response, "answer")
                 return final_response
 
     def _build_prompt_with_history(self, system_prompt: str, history: List[Dict], current_query: str) -> str:
@@ -244,7 +243,12 @@ Call tools step-by-step:
 2. Wait for the results
 3. Then based on those results, call action tools (like order_product)
 
-When you have COMPLETELY finished your task, end with [DONE] on a NEW line.
+CRITICAL: Do NOT say [DONE] until you have completed ALL steps of the task.
+- If you call get_products_stock_levels, wait for results before saying [DONE]
+- If you need to create orders based on stock data, create them BEFORE saying [DONE]
+- Only say [DONE] after ALL actions are complete
+
+When finished, end with [DONE] on a NEW line.
 """
 
     def _parse_tool_calls(self, text: str) -> List[Dict]:

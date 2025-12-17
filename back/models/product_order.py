@@ -8,6 +8,7 @@ class ProductOrder(Document):
     sku: Indexed(str) = Field(..., description="Product identifier (matches products.sku)")
     order_date: datetime = Field(default_factory=datetime.utcnow, description="Date and time when the order was placed")
     quantity: int = Field(..., ge=1, description="Quantity ordered")
+    status: str = Field(default="pending", description="Status of the order")
 
     class Settings:
         name = "product_orders"

@@ -10,15 +10,24 @@ router = APIRouter()
 @router.post("", response_model=SalesTransaction, status_code=status.HTTP_201_CREATED)
 async def create_sale(sale: SalesTransaction):
     """Create a new sales transaction."""
-    product = await Product.find_one(Product.sku == sale.sku)
-    if not product:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Product with SKU {sale.sku} not found"
-        )
+    try:
+        product = await Product.find_one(Product.sku == sale.sku)
+        if not product:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Product with SKU {sale.sku} not found"
+            )
 
-    await sale.insert()
-    return sale
+        await sale.insert()
+        return sale
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[Sales] Error creating sale: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating sale: {str(e)}"
+        )
 
 
 @router.get("", response_model=List[SalesTransaction])

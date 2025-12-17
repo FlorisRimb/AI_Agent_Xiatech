@@ -5,7 +5,7 @@ import uuid
 
 
 class SalesTransaction(Document):
-    transaction_id: Indexed(str, unique=True) = Field(default_factory=lambda: f"TXN-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}", description="Unique sales transaction ID")
+    transaction_id: Indexed(str, unique=True) = Field(default_factory=lambda: f"ORDER-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}", description="Unique sales transaction ID")
     sku: Indexed(str) = Field(..., description="Product identifier (matches products.sku)")
     timestamp: datetime = Field(default_factory=datetime.utcnow, description="Date and time of the sale")
     quantity: int = Field(..., ge=1, description="Quantity sold in this transaction")

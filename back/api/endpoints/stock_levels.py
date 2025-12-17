@@ -1,7 +1,9 @@
 from fastapi import APIRouter, HTTPException, status
 from models.stock_level import StockLevel
 from models.product import Product
+from models.product_order import ProductOrder
 from typing import List
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -80,3 +82,24 @@ async def delete_stock_level(sku: str):
         )
 
     await stock.delete()
+
+
+@router.get("/virtual/all", response_model=List[StockLevel])
+async def get_all_virtual_stock():
+    """Get all stock levels with virtual stock (including pending orders)"""
+    stocks = await StockLevel.find_all().to_list()
+    result = []
+
+    for stock in stocks:
+        # Récupérer les commandes en attente pour ce produit
+        pending_orders = await ProductOrder.find(
+            ProductOrder.sku == stock.sku,
+            ProductOrder.status == "pending"
+        ).to_list()
+
+        virtual_stock = stock.stock_on_hand - sum(order.quantity for order in pending_orders)
+        stock_dict = stock.dict()
+        stock_dict["virtual_stock"] = virtual_stock
+        result.append(StockLevel(**stock_dict))
+
+    return result
