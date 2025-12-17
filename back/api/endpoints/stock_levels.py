@@ -16,7 +16,7 @@ async def create_stock_level(stock: StockLevel):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Product with SKU {stock.sku} not found"
         )
-    
+
     # Vérifier que le stock n'existe pas déjà
     existing = await StockLevel.find_one(StockLevel.sku == stock.sku)
     if existing:
@@ -24,7 +24,7 @@ async def create_stock_level(stock: StockLevel):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Stock level for SKU {stock.sku} already exists"
         )
-    
+
     await stock.insert()
     return stock
 
@@ -56,14 +56,14 @@ async def update_stock_level(sku: str, stock_on_hand: int):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Stock quantity must be non-negative"
         )
-    
+
     stock = await StockLevel.find_one(StockLevel.sku == sku)
     if not stock:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Stock level for SKU {sku} not found"
         )
-    
+
     stock.stock_on_hand = stock_on_hand
     await stock.save()
     return stock
@@ -78,5 +78,5 @@ async def delete_stock_level(sku: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Stock level for SKU {sku} not found"
         )
-    
+
     await stock.delete()

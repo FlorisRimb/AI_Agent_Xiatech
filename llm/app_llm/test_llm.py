@@ -1,14 +1,14 @@
 from llama_cpp import Llama
 
 # Path to your quantized GGUF model
-MODEL_PATH = "/app/models/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
+MODEL_PATH = "/app/qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf"
 
 # Initialize model (loads into memory)
 llm = Llama(
     model_path=MODEL_PATH,
-    #n_ctx=2048,          # context length
-    #n_threads=8,         # adjust based on CPU cores
-    verbose=False,       # enable for detailed logs
+    n_ctx=2048,          # context length
+    n_threads=8,         # adjust based on CPU cores
+    verbose=True,       # enable for detailed logs
     progress_bar=False    # show progress bar during generation
 )
 

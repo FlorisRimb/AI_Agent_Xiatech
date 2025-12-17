@@ -7,12 +7,22 @@ router = APIRouter()
 @router.post("", response_model=ProductOrder, status_code=status.HTTP_201_CREATED)
 async def create_product_order(order: ProductOrder):
     """Create a new product order."""
-    existing = await ProductOrder.find_one(ProductOrder.order_id == order.order_id)
-    if existing:
+    # Validate SKU is not empty
+    if not order.sku or not order.sku.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Order with ID {order.order_id} already exists"
+            detail="SKU cannot be empty"
         )
+
+    # Validate product exists
+    from models.product import Product
+    product = await Product.find_one(Product.sku == order.sku.strip())
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Product with SKU {order.sku} not found"
+        )
+
     await order.insert()
     return order
 
@@ -47,14 +57,14 @@ async def update_product_order(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Order {order_id} not found"
         )
-    
+
     if sku is not None:
         order.sku = sku
     if quantity is not None:
         order.quantity = quantity
     if status is not None:
         order.status = status
-    
+
     await order.save()
     return order
 

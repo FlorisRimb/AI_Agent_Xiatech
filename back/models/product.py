@@ -21,3 +21,4 @@ class Product(Document):
                 "price": 29.99
             }
         }
+
