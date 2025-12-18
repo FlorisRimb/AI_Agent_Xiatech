@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 from models.sales_transaction import SalesTransaction
 from models.product import Product
+from models.stock_level import StockLevel
 from typing import List
 from datetime import datetime, timedelta
 from pydantic import BaseModel
@@ -24,6 +25,24 @@ async def create_sale(sale: SalesTransaction):
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Product with SKU {sale.sku} not found"
             )
+
+        # Check stock availability
+        stock = await StockLevel.find_one(StockLevel.sku == sale.sku)
+        if not stock:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Stock level not found for SKU {sale.sku}"
+            )
+
+        if stock.stock_on_hand < sale.quantity:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Insufficient stock for {sale.sku}. Available: {stock.stock_on_hand}, Requested: {sale.quantity}"
+            )
+
+        # Decrease stock
+        stock.stock_on_hand -= sale.quantity
+        await stock.save()
 
         await sale.insert()
         return sale

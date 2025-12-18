@@ -52,11 +52,21 @@ async def query_agent_post(request: QueryRequest):
 @app.post("/agent/restock", response_model=QueryResponse)
 async def restock_agent_post():
     try:
-        restock_query = "Based of the daily sales, determine the products that will run out of stock in the next 7 days. After identifying them, place orders to restock each products with its sufficient amount to last a least one week"
+        restock_query = "Based of the daily sales, determine the products that will run out of stock in the next 7 days. After identifying them, place orders to restock each products with its sufficient amount to last a least one week. If no products need restocking, simply respond with [DONE]."
         asyncio.create_task(run_query(restock_query))
         return QueryResponse(response="Executing restock query...")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")
+
+@app.post("/agent/simulation", response_model=QueryResponse)
+async def simulation_agent_post(iterations: int = 5):
+    try:
+        from simulation import run_simulation
+        asyncio.create_task(run_simulation(agent, iterations))
+        return QueryResponse(response=f"Executing simulation for {iterations} iterations...")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Simulation error: {str(e)}")
+
 
 @app.get("/health")
 async def health():

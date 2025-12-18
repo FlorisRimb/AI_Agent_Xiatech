@@ -53,28 +53,35 @@ async def soon_out_of_stock_products(days: int = 5):
                 sku = stock["sku"]
                 current_stock = stock.get("virtual_stock", stock["stock_on_hand"])
                 total_sales = sales_aggregation.get(sku, 0)
+
+                # Calculate average daily sales (total sales / number of days analyzed)
                 average_daily_sales = total_sales / days if days > 0 else 0
 
                 # Calculate days until out of stock
                 if average_daily_sales > 0:
                     days_until_out = current_stock / average_daily_sales
                     if days_until_out <= days:
-                        # Calculate recommended order quantity for 2 weeks of stock
-                        recommended_quantity = int(average_daily_sales * 14 - current_stock)
-                        # Ensure minimum order of at least the average daily sales
-                        recommended_quantity = max(recommended_quantity, int(average_daily_sales))
+                        # Calculate recommended order quantity for 4 weeks of stock
+                        # Target: have enough for 28 days based on current sales rate
+                        target_stock = average_daily_sales * 28
 
                         result.append({
                             "sku": sku,
                             "current_stock": current_stock,
                             "average_daily_sales": round(average_daily_sales, 2),
                             "days_until_out_of_stock": round(days_until_out, 2),
-                            "recommended_order_quantity": recommended_quantity
+                            "recommended_order_quantity": target_stock
                         })
                 elif current_stock == 0:
-                    # Already out of stock - recommend ordering for 2 weeks based on past sales
-                    recommended_quantity = int(total_sales / days * 14) if days > 0 else 100
-                    recommended_quantity = max(recommended_quantity, 50)  # Minimum 50 units
+                    # Already out of stock - recommend ordering based on recent sales or default
+                    if total_sales > 0:
+                        # Use average from the period
+                        avg_sales = total_sales / days
+                        recommended_quantity = int(avg_sales * 28)  # 4 weeks
+                        recommended_quantity = max(recommended_quantity, 300)
+                    else:
+                        # No sales history, use default
+                        recommended_quantity = 300
 
                     result.append({
                         "sku": sku,

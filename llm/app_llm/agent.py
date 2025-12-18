@@ -128,7 +128,7 @@ Assistant:"""
                                 full_prompt += f"{action_num}. Called {ctx['name']}"
                                 if 'args' in ctx:
                                     full_prompt += f" with {ctx['args']}"
-                                full_prompt += f"\n   Result: {ctx['result'][:200]}\n"
+                                full_prompt += f"\n   Result: {ctx['result']}\n"
                                 action_num += 1
                             full_prompt += "=== END OF COMPLETED ACTIONS ===\n"
 
@@ -137,7 +137,7 @@ Assistant:"""
                         print(f"[Agent] Generating response (iteration {current_iteration + 1})...)")
                     response = self.llm(
                         full_prompt,
-                        max_tokens=256,
+                        max_tokens=512,
                         temperature=0.5,
                         stop=["[DONE]", "\n\n\n"],
                     )
@@ -178,7 +178,6 @@ Assistant:"""
                             "result": current_response
                         })
                         current_iteration += 1
-                        continue
 
                     # Save the explanation to history BEFORE executing tools
                     explanation = self._clean_response(current_response)
@@ -187,10 +186,24 @@ Assistant:"""
 
                     # Execute all tool calls
                     print(f"[Agent] {len(tool_calls)} tool call(s) detected")
+
+                    # Build a set of already executed tool calls in this iteration
+                    executed_in_iteration = set()
+                    for ctx in tool_results_context:
+                        if ctx['name'] != 'reasoning' and 'args' in ctx:
+                            call_signature = (ctx['name'], json.dumps(ctx['args'], sort_keys=True))
+                            executed_in_iteration.add(call_signature)
+
                     for idx, tool_call in enumerate(tool_calls):
                         print(f"[Agent] Tool call {idx + 1}/{len(tool_calls)}: {tool_call}")
                         tool_name = tool_call['name']
                         tool_args = tool_call['arguments']
+
+                        # Check if this exact call was already made in this iteration
+                        call_signature = (tool_name, json.dumps(tool_args, sort_keys=True))
+                        if call_signature in executed_in_iteration:
+                            print(f"[Agent] ⚠️  DUPLICATE DETECTED: {tool_name} with same args already called in this iteration. Stopping.")
+                            continue
 
                         print(f"[Agent] Calling tool {tool_name} with args {tool_args}")
                         result = await session.call_tool(tool_name, arguments=tool_args)
@@ -210,12 +223,15 @@ Assistant:"""
 
                         print(f"[Agent] Tool result (parsed): {result_text[:200]}...")
 
-                        # Add to context with args for transparency
+                        # Add to context with args for duplicate detection
                         tool_results_context.append({
                             "name": tool_name,
                             "result": result_text,
                             "args": tool_args
                         })
+
+                        # Mark this call as executed
+                        executed_in_iteration.add(call_signature)
 
                     # Check if this was the final iteration (had [DONE])
                     if "[DONE]" in current_response:

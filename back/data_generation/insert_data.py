@@ -25,15 +25,15 @@ async def insert_product(df_product):
         row = row.to_dict()
         await insert_item("products", row)
 
-async def insert_sale(df_sale):
-    for _, row in df_sale.iterrows():
-        row = row.to_dict()
-        await insert_item("sales", row)
-
 async def insert_stock(df_stock):
     for _, row in df_stock.iterrows():
         row = row.to_dict()
         await insert_item("stocks", row)
+
+async def insert_sale(df_sale):
+    for _, row in df_sale.iterrows():
+        row = row.to_dict()
+        await insert_item("sales", row)
 
 async def insert_sku_supplier(df_sku_supplier) :
     for _, row in df_sku_supplier.iterrows():
