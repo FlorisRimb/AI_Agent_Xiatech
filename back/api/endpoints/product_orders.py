@@ -36,14 +36,22 @@ async def create_product_order(order: ProductOrder):
 @router.get("", response_model=List[ProductOrder])
 async def list_product_orders(limit: int = 100, status: str | None = None, days: int | None = None):
     """List all product orders."""
-    query = ProductOrder.find_all()
-    if status:
-        query = query.filter(ProductOrder.status == status)
-    if days is not None:
+    # Build query conditions
+    if status and days is not None:
         from datetime import datetime, timedelta
         cutoff_date = datetime.now() - timedelta(days=days)
-        query = query.filter(ProductOrder.timestamp >= cutoff_date)
-    orders = await query.limit(limit).to_list()
+        orders = await ProductOrder.find(
+            ProductOrder.status == status,
+            ProductOrder.order_date >= cutoff_date
+        ).limit(limit).to_list()
+    elif status:
+        orders = await ProductOrder.find(ProductOrder.status == status).limit(limit).to_list()
+    elif days is not None:
+        from datetime import datetime, timedelta
+        cutoff_date = datetime.now() - timedelta(days=days)
+        orders = await ProductOrder.find(ProductOrder.order_date < cutoff_date).limit(limit).to_list()
+    else:
+        orders = await ProductOrder.find_all().limit(limit).to_list()
     return orders
 
 @router.get("/{order_id}", response_model=ProductOrder)

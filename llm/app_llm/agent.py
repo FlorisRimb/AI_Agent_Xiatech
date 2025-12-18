@@ -13,6 +13,7 @@ import os
 FASTAPI_BASE_URL = os.getenv("FASTAPI_URL", "http://back:8000/api")
 
 
+
 class RetailInventoryAgent:
     """LLM Agent with MCP tools for retail inventory management."""
 
@@ -28,7 +29,7 @@ class RetailInventoryAgent:
         print("[Agent] Model loaded successfully")
 
     async def _save_to_history(self, response: str, history_type: str):
-        """Save agent interaction to history."""
+        """Save agent interaction to database history (not local_history)."""
         try:
             async with AsyncClient() as client:
                 history_data = {
@@ -56,22 +57,33 @@ class RetailInventoryAgent:
         cleaned = re.sub(r'\n\s*\n+', '\n\n', cleaned)
         return cleaned.strip()
 
-    async def run_with_tools(self, user_query: str, history: List[Dict] = None) -> str:
+    async def run_with_tools(self, user_query: str) -> str:
         """Run the agent with access to MCP tools."""
         print(f"\n[Agent] User query: {user_query}")
 
-        if history:
-            print(f"[Agent] Conversation history ({len(history)} items):")
-            for idx, item in enumerate(history):
-                print(f"  [{idx+1}] Q: {item['query'][:80]}...")
-                print(f"      A: {item['response'][:80]}...")
-        else:
-            print("[Agent] No conversation history")
+        local_history: List[dict] = []
+
+        # Add user query to history at the start
+        current_exchange = {
+            "query": user_query,
+            "response": "",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
 
         server_params = StdioServerParameters(
             command="python",
             args=["mcp/server.py"],
         )
+
+        if local_history:
+            print(f"[Agent] Conversation history ({len(local_history)} items):")
+            for idx, item in enumerate(local_history):
+                query_preview = item.get('query', '')[:80] if item.get('query') else 'N/A'
+                response_preview = item.get('response', '')[:80] if item.get('response') else 'N/A'
+                print(f"  [{idx+1}] Q: {query_preview}...")
+                print(f"      A: {response_preview}...")
+        else:
+            print("[Agent] No conversation history")
 
         async with stdio_client(server_params) as (read, write):
             async with ClientSession(read, write) as session:
@@ -104,7 +116,7 @@ What is the FIRST step? Call ONE tool.
 Assistant:"""
                     else:
                         # Add tool results to prompt
-                        full_prompt = self._build_prompt_with_history(system_prompt, history, user_query)
+                        full_prompt = self._build_prompt_with_history(system_prompt, local_history, user_query)
                         for tool_ctx in tool_results_context:
                             full_prompt += f"\n\n[Tool {tool_ctx['name']} returned]:\n{tool_ctx['result']}"
                         full_prompt += "\n\nBased on this data, what is the NEXT step? Call ONE tool or say [DONE] if complete.\n\nAssistant:"
@@ -114,7 +126,7 @@ Assistant:"""
                         full_prompt,
                         max_tokens=512,
                         temperature=0.7,
-                        stop=["[DONE]"],
+                        stop=["DONE"],
                     )
 
                     current_response = response['choices'][0]['text'].strip()
@@ -139,6 +151,11 @@ Assistant:"""
                             print("[Agent] Agent signaled completion with [DONE]")
                             final_response = self._clean_response(current_response)
                             await self._save_to_history(final_response, "answer")
+
+                            # Save to local history
+                            current_exchange["response"] = final_response
+                            local_history.append(current_exchange)
+
                             return final_response
 
                     # If no tool calls and no [DONE], continue to next iteration for more reasoning
@@ -191,6 +208,11 @@ Assistant:"""
                     if "[DONE]" in current_response:
                         print("[Agent] Agent signaled completion with [DONE] after tool execution")
                         # Don't save again - already saved before tool execution
+
+                        # Save to local history
+                        current_exchange["response"] = explanation
+                        local_history.append(current_exchange)
+
                         return explanation
 
                     current_iteration += 1
@@ -198,18 +220,23 @@ Assistant:"""
                 # If we exhausted iterations, return last response
                 print("[Agent] Max iterations reached")
                 final_response = self._clean_response(current_response) if current_response else "Max iterations reached without completion"
+
+                # Save to local history
+                current_exchange["response"] = final_response
+                local_history.append(current_exchange)
+
                 return final_response
 
     def _build_prompt_with_history(self, system_prompt: str, history: List[Dict], current_query: str) -> str:
         """Construire le prompt avec l'historique."""
         prompt = system_prompt + "\n\n"
-
-        for item in history:
-            prompt += f"User: {item['query']}\n\n"
-            prompt += f"Assistant: {item['response']}\n\n"
-
-        prompt += f"User: {current_query}\n\nAssistant:"
-
+        if history:
+            prompt += "Conversation History:\n"
+            for item in history:
+                prompt += f"User: {item['query']}\n"
+                prompt += f"Assistant: {self._clean_response(item['response'])}\n"
+            prompt += "\n"
+        prompt += f"Current Task: {current_query}\n"
         return prompt
 
     def _build_system_prompt(self, tools):
@@ -227,7 +254,7 @@ RULES:
 1. NEVER make up SKU values - use actual data from tools
 2. Call ONE information tool at a time (like soon_out_of_stock_products)
 3. You CAN call order_product multiple times in ONE response
-4. Always provide a brief explanation before tool calls
+4. Please always provide a brief explanation of what you are doing before tool calls
 5. Say [DONE] only when the task is complete
 
 WORKFLOW EXAMPLE - "identify and order products":

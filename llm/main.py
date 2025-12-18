@@ -17,9 +17,6 @@ class QueryRequest(BaseModel):
 class QueryResponse(BaseModel):
     response: str
 
-class HistoryResponse(BaseModel):
-    history: List[dict]
-
 @app.on_event("startup")
 async def startup():
     global agent
@@ -52,18 +49,13 @@ async def query_agent_post(request: QueryRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")
 
-@app.get("/agent/history", response_model=HistoryResponse)
-async def get_history():
-    return HistoryResponse(history=history)
-
 @app.get("/health")
 async def health():
     return {"status": "healthy", "agent_loaded": agent is not None}
 
 async def run_query(user_query: str):
     print("\n" + "="*60)
-    response = await agent.run_with_tools(user_query, history)
-    history.append({"query": user_query, "response": response})
+    response = await agent.run_with_tools(user_query)
     print(f"\n[Final Answer] {response}")
     print("="*60)
 
