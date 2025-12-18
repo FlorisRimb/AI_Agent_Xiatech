@@ -1,6 +1,6 @@
 import asyncio
 from mcp.server.fastmcp import FastMCP
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 from httpx import AsyncClient
 from typing import List, Dict
@@ -11,49 +11,83 @@ FASTAPI_BASE_URL = os.getenv("FASTAPI_URL", "http://back:8000/api")
 mcp = FastMCP("retail-agent-mcp")
 
 
-async def save_to_history(response: str, history_type: str):
-    """Save agent interaction to history."""
-    try:
-        async with AsyncClient() as client:
-            history_data = {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "response": response,
-                "type": history_type
-            }
-            await client.post(f"{FASTAPI_BASE_URL}/agent", json=history_data)
-    except Exception as e:
-        print(f"[History] Error saving to history: {e}")
-
-
 @mcp.tool()
-async def get_products_stock_levels():
+async def soon_out_of_stock_products(days: int = 5):
     """
-    Get a list of products with their stock levels
+    Get a list of products that are soon out of stock based on current stock and recent sales trends.
+
+    Args:
+        days (int): The number of days to look ahead for stock depletion.
 
     Returns:
-        List of products with their SKUs and stock levels.
+        List of products with their SKUs, current stock, average daily sales, estimated days until out of stock, and recommended order quantity for 2 weeks of stock.
     """
     try:
         async with AsyncClient() as client:
-            await save_to_history(
-                "Getting products stock levels",
-                "tool"
-            )
 
-            response = await client.get(f"{FASTAPI_BASE_URL}/stocks")
-            if response.status_code != HTTPStatus.OK:
-                error_msg = f"Erreur {response.status_code}: {response.text}"
-                await save_to_history("Error getting products stock levels", "tool")
+            # Get current stock levels
+            stock_response = await client.get(f"{FASTAPI_BASE_URL}/stocks/virtual/all")
+            if stock_response.status_code != HTTPStatus.OK:
+                error_msg = f"Error getting stock levels: {stock_response.status_code}: {stock_response.text}"
                 return {"error": error_msg}
 
-            data = response.json()
-            await save_to_history(f"{len(data)} products successfully retrieved", "tool")
-            result = [{"sku": item["sku"], "stock": item["stock_on_hand"]} for item in data]
+            # Get sales data for the past 'days' period to calculate average
+            sales_response = await client.get(f"{FASTAPI_BASE_URL}/sales", params={"days": days})
+            if sales_response.status_code != HTTPStatus.OK:
+                error_msg = f"Error getting sales data: {sales_response.status_code}: {sales_response.text}"
+                return {"error": error_msg}
 
-            return result
+            stocks = stock_response.json()
+            sales = sales_response.json()
+
+            # Calculate average daily sales per SKU
+            sales_aggregation: Dict[str, int] = {}
+            for sale in sales:
+                sku = sale["sku"]
+                quantity = sale["quantity"]
+                sales_aggregation[sku] = sales_aggregation.get(sku, 0) + quantity
+
+            # Determine products that will run out in the given days
+            result = []
+            for stock in stocks:
+                sku = stock["sku"]
+                current_stock = stock.get("virtual_stock", stock["stock_on_hand"])
+                total_sales = sales_aggregation.get(sku, 0)
+                average_daily_sales = total_sales / days if days > 0 else 0
+
+                # Calculate days until out of stock
+                if average_daily_sales > 0:
+                    days_until_out = current_stock / average_daily_sales
+                    if days_until_out <= days:
+                        # Calculate recommended order quantity for 2 weeks of stock
+                        recommended_quantity = int(average_daily_sales * 14 - current_stock)
+                        # Ensure minimum order of at least the average daily sales
+                        recommended_quantity = max(recommended_quantity, int(average_daily_sales))
+
+                        result.append({
+                            "sku": sku,
+                            "current_stock": current_stock,
+                            "average_daily_sales": round(average_daily_sales, 2),
+                            "days_until_out_of_stock": round(days_until_out, 2),
+                            "recommended_order_quantity": recommended_quantity
+                        })
+                elif current_stock == 0:
+                    # Already out of stock - recommend ordering for 2 weeks based on past sales
+                    recommended_quantity = int(total_sales / days * 14) if days > 0 else 100
+                    recommended_quantity = max(recommended_quantity, 50)  # Minimum 50 units
+
+                    result.append({
+                        "sku": sku,
+                        "current_stock": current_stock,
+                        "average_daily_sales": round(average_daily_sales, 2),
+                        "days_until_out_of_stock": 0,
+                        "recommended_order_quantity": recommended_quantity
+                    })
+
+            return sorted(result, key=lambda x: x["days_until_out_of_stock"])
+
     except Exception as e:
         error_msg = str(e)
-        await save_to_history("Error getting products stock levels", "tool")
         return {"error": error_msg}
 
 
@@ -69,16 +103,12 @@ async def order_product(sku: str, quantity: int):
         Confirmation message or error.
     """
     try:
-        await save_to_history(f"Ordering {quantity} units of {sku}", "tool")
-
         if not sku or not sku.strip():
             error_msg = "SKU cannot be empty"
-            await save_to_history("Error when ordering product", "tool")
             return {"error": error_msg}
 
         if quantity <= 0:
             error_msg = "Quantity must be positive"
-            await save_to_history("Error when ordering product", "tool")
             return {"error": error_msg}
 
         async with AsyncClient() as client:
@@ -90,64 +120,82 @@ async def order_product(sku: str, quantity: int):
             response = await client.post(f"{FASTAPI_BASE_URL}/orders", json=order_data)
             if response.status_code != HTTPStatus.CREATED:
                 error_msg = f"Erreur {response.status_code}: {response.text}"
-                await save_to_history("Error when ordering product", "tool")
                 return {"error": error_msg}
-
-            # Save to history
-            await save_to_history(f"Order of {quantity} units of {sku} successfully placed", "tool")
 
             return {"message": f"Order placed for SKU {sku}, quantity {quantity}."}
     except Exception as e:
         error_msg = str(e)
-        await save_to_history("Error when ordering product", "tool")
         return {"error": error_msg}
 
 
 @mcp.tool()
-async def get_average_daily_sales(days: int):
+async def get_orders_by_status(status: str = "pending", days: int | None = None):
     """
-    Get average daily sales per product SKU for the past given number of days.
+    Get a list of product orders by status, optionally filtered by age.
 
     Args:
-        days (int): Number of days back from today to retrieve sales for.
+        status (str): The status of orders to retrieve. Default is "pending".
+        days (int, optional): If provided, only return orders from the last N days.
 
     Returns:
-        List of products with their SKUs and average daily sales.
+        List of orders with their SKUs, quantities, order dates, and order IDs.
     """
     try:
         async with AsyncClient() as client:
-            await save_to_history(
-                f"Getting sales for the past {days} days",
-                "tool"
-            )
+            params = {"status": status}
+            if days is not None:
+                params["days"] = days
 
-            response = await client.get(f"{FASTAPI_BASE_URL}/sales", params={"limit": 1000})
+            response = await client.get(f"{FASTAPI_BASE_URL}/orders", params=params)
             if response.status_code != HTTPStatus.OK:
                 error_msg = f"Erreur {response.status_code}: {response.text}"
-                await save_to_history("Error getting daily sales", "tool")
                 return {"error": error_msg}
 
             data = response.json()
-            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
-            filtered_sales = [
-                sale for sale in data
-                if datetime.fromisoformat(sale["timestamp"]).replace(tzinfo=timezone.utc) >= cutoff_date
-            ]
+            result = [{"order_id": item["order_id"], "sku": item["sku"], "quantity": item["quantity"], "order_date": item["order_date"]} for item in data]
 
-            sales_summary: Dict[str, int] = {}
-            for sale in filtered_sales:
-                sku = sale["sku"]
-                quantity = sale["quantity"]
-                sales_summary[sku] = sales_summary.get(sku, 0) + quantity
-
-            result = [{"sku": sku, "total_quantity_sold": qty} for sku, qty in sales_summary.items()]
-
-            await save_to_history(f"Retrieved sales data for {len(result)} products", "tool")
             return result
     except Exception as e:
         error_msg = str(e)
-        await save_to_history("Error getting daily sales", "tool")
         return {"error": error_msg}
+
+
+@mcp.tool()
+async def update_order_status(order_id: str, status: str):
+    """
+    Update the status of a product order.
+
+    Args:
+        order_id (str): The ID of the order to update.
+        status (str): The new status for the order. Can be "pending", "completed", or "canceled".
+
+    Returns:
+        Confirmation message or error.
+    """
+    try:
+
+        if not order_id or not order_id.strip():
+            error_msg = "Order ID cannot be empty"
+            return {"error": error_msg}
+
+        if status not in ["pending", "completed", "canceled"]:
+            error_msg = "Invalid status value"
+            return {"error": error_msg}
+
+        async with AsyncClient() as client:
+            update_data = {
+                "status": status
+            }
+            response = await client.put(f"{FASTAPI_BASE_URL}/orders/{order_id.strip()}", json=update_data)
+            if response.status_code != HTTPStatus.OK:
+                error_msg = f"Erreur {response.status_code}: {response.text}"
+                return {"error": error_msg}
+
+            return {"message": f"Order {order_id} updated to status {status}."}
+    except Exception as e:
+        error_msg = str(e)
+        return {"error": error_msg}
+
 
 
 if __name__ == "__main__":

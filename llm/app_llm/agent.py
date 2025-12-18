@@ -100,29 +100,31 @@ class RetailInventoryAgent:
 
 Task: {user_query}
 
-Think step-by-step:
-1. What information do I need to gather first?
-2. What tools should I call to get that information?
-3. Once I have the data, what actions should I take?
-
-Explain your action then call the appropriate tool(s):
+What is the FIRST step? Call ONE tool.
 Assistant:"""
                     else:
                         # Add tool results to prompt
                         full_prompt = self._build_prompt_with_history(system_prompt, history, user_query)
                         for tool_ctx in tool_results_context:
                             full_prompt += f"\n\n[Tool {tool_ctx['name']} returned]:\n{tool_ctx['result']}"
-                        full_prompt += "\n\nBased on this data, decide if you need to call another tool or provide a final answer:\n\nAssistant:"
+                        full_prompt += "\n\nBased on this data, what is the NEXT step? Call ONE tool or say [DONE] if complete.\n\nAssistant:"
 
                     print(f"[Agent] Generating response (iteration {current_iteration + 1})...")
                     response = self.llm(
                         full_prompt,
-                        max_tokens=1024,
+                        max_tokens=512,
                         temperature=0.7,
-                        stop=["User:", "\n\n"],
+                        stop=["[DONE]"],
                     )
 
                     current_response = response['choices'][0]['text'].strip()
+
+                    # Skip empty responses
+                    if not current_response:
+                        print("[Agent] Empty response, continuing...")
+                        current_iteration += 1
+                        continue
+
                     print(f"[Agent] LLM Response: {current_response}")
 
                     # Parse all tool calls from the response FIRST
@@ -221,34 +223,24 @@ Assistant:"""
 
 {tools_desc}
 
-IMPORTANT FORMAT: Explain your action, then call tool(s) on the NEXT line(s):
+RULES:
+1. NEVER make up SKU values - use actual data from tools
+2. Call ONE information tool at a time (like soon_out_of_stock_products)
+3. You CAN call order_product multiple times in ONE response
+4. Always provide a brief explanation before tool calls
+5. Say [DONE] only when the task is complete
 
-CORRECT example:
-I will get the current stock levels to identify low stock items.
-TOOL_CALL: get_products_stock_levels()
+WORKFLOW EXAMPLE - "identify and order products":
+I will check which products need restocking.
+TOOL_CALL: soon_out_of_stock_products(days=5)
 
-WRONG example (don't repeat):
-TOOL_CALL: get_products_stock_levels()
-I will get the current stock levels...
-TOOL_CALL: get_products_stock_levels()
+(After receiving results with SKU-0018 and SKU-0025)
 
-When creating multiple orders:
-I will be creating orders for the 3 lowest stocked items.
-TOOL_CALL: order_product(sku="SKU-0001", quantity=50)
-TOOL_CALL: order_product(sku="SKU-0002", quantity=50)
-TOOL_CALL: order_product(sku="SKU-0003", quantity=50)
+I will place orders for the identified products using the recommended quantities.
+TOOL_CALL: order_product(sku="SKU-0018", quantity=166)
+TOOL_CALL: order_product(sku="SKU-0025", quantity=200)
 
-Call tools step-by-step:
-1. First, gather information (like get_products_stock_levels)
-2. Wait for the results
-3. Then based on those results, call action tools (like order_product)
-
-CRITICAL: Do NOT say [DONE] until you have completed ALL steps of the task.
-- If you call get_products_stock_levels, wait for results before saying [DONE]
-- If you need to create orders based on stock data, create them BEFORE saying [DONE]
-- Only say [DONE] after ALL actions are complete
-
-When finished, end with [DONE] on a NEW line.
+[DONE]
 """
 
     def _parse_tool_calls(self, text: str) -> List[Dict]:

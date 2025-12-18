@@ -8,6 +8,10 @@ from pydantic import BaseModel
 router = APIRouter()
 
 
+class StockLevelUpdate(BaseModel):
+    stock_on_hand: int
+
+
 @router.post("", response_model=StockLevel, status_code=status.HTTP_201_CREATED)
 async def create_stock_level(stock: StockLevel):
     """Create a new stock level entry."""
@@ -51,9 +55,9 @@ async def get_stock_level(sku: str):
 
 
 @router.put("/{sku}", response_model=StockLevel)
-async def update_stock_level(sku: str, stock_on_hand: int):
+async def update_stock_level(sku: str, update_data: StockLevelUpdate):
     """Update stock level for a product."""
-    if stock_on_hand < 0:
+    if update_data.stock_on_hand < 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Stock quantity must be non-negative"
@@ -66,7 +70,7 @@ async def update_stock_level(sku: str, stock_on_hand: int):
             detail=f"Stock level for SKU {sku} not found"
         )
 
-    stock.stock_on_hand = stock_on_hand
+    stock.stock_on_hand = update_data.stock_on_hand
     await stock.save()
     return stock
 

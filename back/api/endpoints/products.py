@@ -1,8 +1,15 @@
 from fastapi import APIRouter, HTTPException, status
 from models.product import Product
 from typing import List
+from pydantic import BaseModel
 
 router = APIRouter()
+
+
+class ProductUpdate(BaseModel):
+    name: str | None = None
+    category: str | None = None
+    price: float | None = None
 
 
 @router.post("", response_model=Product, status_code=status.HTTP_201_CREATED)
@@ -14,7 +21,7 @@ async def create_product(product: Product):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Product with SKU {product.sku} already exists"
         )
-    
+
     await product.insert()
     return product
 
@@ -42,7 +49,7 @@ async def get_product(sku: str):
 
 
 @router.put("/{sku}", response_model=Product)
-async def update_product(sku: str, name: str | None = None, category: str | None = None, price: float | None = None):
+async def update_product(sku: str, update_data: ProductUpdate):
     """Update a product."""
     product = await Product.find_one(Product.sku == sku)
     if not product:
@@ -50,14 +57,14 @@ async def update_product(sku: str, name: str | None = None, category: str | None
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Product with SKU {sku} not found"
         )
-    
-    if name is not None:
-        product.name = name
-    if category is not None:
-        product.category = category
-    if price is not None:
-        product.price = price
-    
+
+    if update_data.name is not None:
+        product.name = update_data.name
+    if update_data.category is not None:
+        product.category = update_data.category
+    if update_data.price is not None:
+        product.price = update_data.price
+
     await product.save()
     return product
 
@@ -71,5 +78,5 @@ async def delete_product(sku: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Product with SKU {sku} not found"
         )
-    
+
     await product.delete()

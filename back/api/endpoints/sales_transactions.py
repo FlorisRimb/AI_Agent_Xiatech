@@ -2,9 +2,16 @@ from fastapi import APIRouter, HTTPException, status
 from models.sales_transaction import SalesTransaction
 from models.product import Product
 from typing import List
-from datetime import datetime
+from datetime import datetime, timedelta
+from pydantic import BaseModel
 
 router = APIRouter()
+
+
+class SalesTransactionUpdate(BaseModel):
+    sku: str | None = None
+    quantity: int | None = None
+    timestamp: datetime | None = None
 
 
 @router.post("", response_model=SalesTransaction, status_code=status.HTTP_201_CREATED)
@@ -31,9 +38,13 @@ async def create_sale(sale: SalesTransaction):
 
 
 @router.get("", response_model=List[SalesTransaction])
-async def list_sales(date_from: datetime | None = None, date_to: datetime | None = None, limit: int = 100, skip: int = 0):
+async def list_sales(days: int | None = None, limit: int = 100):
     """List all sales transactions."""
-    sales = await SalesTransaction.find_all().skip(skip).limit(limit).to_list()
+    if days is not None:
+        cutoff_date = datetime.now() - timedelta(days=days)
+        sales = await SalesTransaction.find(SalesTransaction.timestamp >= cutoff_date).limit(limit).to_list()
+    else:
+        sales = await SalesTransaction.find_all().limit(limit).to_list()
     return sales
 
 
@@ -52,9 +63,7 @@ async def get_sale(transaction_id: str):
 @router.put("/{transaction_id}", response_model=SalesTransaction)
 async def update_sale(
     transaction_id: str,
-    sku: str | None = None,
-    quantity: int | None = None,
-    timestamp: datetime | None = None
+    update_data: SalesTransactionUpdate
 ):
     """Update a sales transaction."""
     sale = await SalesTransaction.find_one(SalesTransaction.transaction_id == transaction_id)
@@ -64,25 +73,25 @@ async def update_sale(
             detail=f"Transaction {transaction_id} not found"
         )
 
-    if sku is not None:
-        product = await Product.find_one(Product.sku == sku)
+    if update_data.sku is not None:
+        product = await Product.find_one(Product.sku == update_data.sku)
         if not product:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Product with SKU {sku} not found"
+                detail=f"Product with SKU {update_data.sku} not found"
             )
-        sale.sku = sku
+        sale.sku = update_data.sku
 
-    if quantity is not None:
-        if quantity < 1:
+    if update_data.quantity is not None:
+        if update_data.quantity < 1:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Quantity must be at least 1"
             )
-        sale.quantity = quantity
+        sale.quantity = update_data.quantity
 
-    if timestamp is not None:
-        sale.timestamp = timestamp
+    if update_data.timestamp is not None:
+        sale.timestamp = update_data.timestamp
 
     await sale.save()
     return sale
