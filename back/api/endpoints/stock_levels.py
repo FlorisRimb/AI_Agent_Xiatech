@@ -36,9 +36,27 @@ async def create_stock_level(stock: StockLevel):
 
 
 @router.get("", response_model=List[StockLevel])
-async def list_stock_levels(limit: int = 100, skip: int = 0):
-    """List all stock levels."""
-    stocks = await StockLevel.find_all().skip(skip).limit(limit).to_list()
+async def list_stock_levels(
+    sku: str | None = None,
+    min_stock: int | None = None,
+    max_stock: int | None = None,
+    limit: int = 100,
+    skip: int = 0
+):
+    """List all stock levels with optional filters."""
+    conditions = []
+
+    if sku:
+        conditions.append(StockLevel.sku == sku)
+    if min_stock is not None:
+        conditions.append(StockLevel.stock_on_hand >= min_stock)
+    if max_stock is not None:
+        conditions.append(StockLevel.stock_on_hand <= max_stock)
+
+    if conditions:
+        stocks = await StockLevel.find(*conditions).skip(skip).limit(limit).to_list()
+    else:
+        stocks = await StockLevel.find_all().skip(skip).limit(limit).to_list()
     return stocks
 
 

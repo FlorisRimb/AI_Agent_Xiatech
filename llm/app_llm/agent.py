@@ -117,25 +117,37 @@ Assistant:"""
                     else:
                         # Add tool results to prompt
                         full_prompt = self._build_prompt_with_history(system_prompt, local_history, user_query)
-                        for tool_ctx in tool_results_context:
-                            full_prompt += f"\n\n[Tool {tool_ctx['name']} returned]:\n{tool_ctx['result']}"
-                        full_prompt += "\n\nBased on this data, what is the NEXT step? Call ONE tool or say [DONE] if complete.\n\nAssistant:"
 
-                    print(f"[Agent] Generating response (iteration {current_iteration + 1})...")
+                        # Build a clear summary of completed actions
+                        if tool_results_context:
+                            full_prompt += "\n\n=== ACTIONS COMPLETED SO FAR ===\n"
+                            action_num = 1
+                            for ctx in tool_results_context:
+                                if ctx['name'] == 'reasoning':
+                                    continue
+                                full_prompt += f"{action_num}. Called {ctx['name']}"
+                                if 'args' in ctx:
+                                    full_prompt += f" with {ctx['args']}"
+                                full_prompt += f"\n   Result: {ctx['result'][:200]}\n"
+                                action_num += 1
+                            full_prompt += "=== END OF COMPLETED ACTIONS ===\n"
+
+                            full_prompt += "\n\nIMPORTANT: Review the actions above. Do NOT repeat them. What is the NEXT NEW action needed, or say [DONE] if everything is complete?\n\nAssistant:"
+
+                        print(f"[Agent] Generating response (iteration {current_iteration + 1})...)")
                     response = self.llm(
                         full_prompt,
-                        max_tokens=512,
-                        temperature=0.7,
-                        stop=["DONE"],
+                        max_tokens=256,
+                        temperature=0.5,
+                        stop=["[DONE]", "\n\n\n"],
                     )
 
                     current_response = response['choices'][0]['text'].strip()
 
-                    # Skip empty responses
+                    # Empty response when ai stop generating
                     if not current_response:
-                        print("[Agent] Empty response, continuing...")
-                        current_iteration += 1
-                        continue
+                        print("[Agent] Empty response, stopping process...")
+                        break
 
                     print(f"[Agent] LLM Response: {current_response}")
 
@@ -198,10 +210,11 @@ Assistant:"""
 
                         print(f"[Agent] Tool result (parsed): {result_text[:200]}...")
 
-                        # Add to context
+                        # Add to context with args for transparency
                         tool_results_context.append({
                             "name": tool_name,
-                            "result": result_text
+                            "result": result_text,
+                            "args": tool_args
                         })
 
                     # Check if this was the final iteration (had [DONE])
@@ -217,9 +230,10 @@ Assistant:"""
 
                     current_iteration += 1
 
-                # If we exhausted iterations, return last response
-                print("[Agent] Max iterations reached")
-                final_response = self._clean_response(current_response) if current_response else "Max iterations reached without completion"
+                if current_iteration >= max_iterations:
+                    print("[Agent] Max iterations reached")
+
+                final_response = self._clean_response(current_response) if current_response else "No response generated."
 
                 # Save to local history
                 current_exchange["response"] = final_response
@@ -246,26 +260,26 @@ Assistant:"""
             for tool in tools
         ])
 
-        return f"""You are a helpful retail inventory management assistant. You have access to the following tools:
+        return f"""You are a retail inventory assistant. Available tools:
 
 {tools_desc}
 
 RULES:
 1. NEVER make up SKU values - use actual data from tools
-2. Call ONE information tool at a time (like soon_out_of_stock_products)
-3. You CAN call order_product multiple times in ONE response
-4. Please always provide a brief explanation of what you are doing before tool calls
-5. Say [DONE] only when the task is complete
+2. NEVER call the same tool twice with the same arguments
+3. Call ONE information tool at a time to gather data
+4. You CAN call order_product multiple times in ONE response
+5. Brief explanation before tool calls
+6. Say [DONE] when complete
 
-WORKFLOW EXAMPLE - "identify and order products":
-I will check which products need restocking.
+EXAMPLE:
+Checking products needing restock.
 TOOL_CALL: soon_out_of_stock_products(days=5)
 
-(After receiving results with SKU-0018 and SKU-0025)
+(Gets SKU-0018, qty 166)
 
-I will place orders for the identified products using the recommended quantities.
+Placing order for SKU-0018.
 TOOL_CALL: order_product(sku="SKU-0018", quantity=166)
-TOOL_CALL: order_product(sku="SKU-0025", quantity=200)
 
 [DONE]
 """

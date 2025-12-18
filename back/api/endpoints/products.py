@@ -27,10 +27,31 @@ async def create_product(product: Product):
 
 
 @router.get("", response_model=List[Product])
-async def list_products(category: str | None = None, limit: int = 100):
-    """List all products, optionally filtered by category."""
+async def list_products(
+    category: str | None = None,
+    sku: str | None = None,
+    name: str | None = None,
+    min_price: float | None = None,
+    max_price: float | None = None,
+    limit: int = 100
+):
+    """List all products with optional filters."""
+    conditions = []
+
     if category:
-        products = await Product.find(Product.category == category).limit(limit).to_list()
+        conditions.append(Product.category == category)
+    if sku:
+        conditions.append(Product.sku == sku)
+    if name:
+        # Case-insensitive partial match
+        conditions.append(Product.name.contains(name, case_sensitive=False))
+    if min_price is not None:
+        conditions.append(Product.price >= min_price)
+    if max_price is not None:
+        conditions.append(Product.price <= max_price)
+
+    if conditions:
+        products = await Product.find(*conditions).limit(limit).to_list()
     else:
         products = await Product.find_all().limit(limit).to_list()
     return products

@@ -92,6 +92,127 @@ async def soon_out_of_stock_products(days: int = 5):
 
 
 @mcp.tool()
+async def get_products(category: str | None = None, name: str | None = None, limit: int = 50):
+    """
+    Get a list of products with optional filters.
+
+    Args:
+        category (str, optional): Filter by product category.
+        name (str, optional): Filter by product name (partial match).
+        limit (int): Maximum number of products to return. Default is 50.
+
+    Returns:
+        List of products with their SKUs, names, categories, and prices.
+    """
+    try:
+        async with AsyncClient() as client:
+            params = {"limit": limit}
+            if category:
+                params["category"] = category
+            if name:
+                params["name"] = name
+
+            response = await client.get(f"{FASTAPI_BASE_URL}/products", params=params)
+            if response.status_code != HTTPStatus.OK:
+                error_msg = f"Error getting products: {response.status_code}: {response.text}"
+                return {"error": error_msg}
+
+            data = response.json()
+            result = [{
+                "sku": item["sku"],
+                "name": item["name"],
+                "category": item["category"],
+                "price": item["price"]
+            } for item in data]
+
+            return result
+    except Exception as e:
+        error_msg = str(e)
+        return {"error": error_msg}
+
+
+@mcp.tool()
+async def get_sales(sku: str | None = None, days: int | None = None, limit: int = 100):
+    """
+    Get sales transactions with optional filters.
+
+    Args:
+        sku (str, optional): Filter by product SKU.
+        days (int, optional): Get sales from the last N days.
+        limit (int): Maximum number of transactions to return. Default is 100.
+
+    Returns:
+        List of sales transactions with SKU, quantity, and timestamp.
+    """
+    try:
+        async with AsyncClient() as client:
+            params = {"limit": limit}
+            if sku:
+                params["sku"] = sku
+            if days is not None:
+                params["days"] = days
+
+            response = await client.get(f"{FASTAPI_BASE_URL}/sales", params=params)
+            if response.status_code != HTTPStatus.OK:
+                error_msg = f"Error getting sales: {response.status_code}: {response.text}"
+                return {"error": error_msg}
+
+            data = response.json()
+            result = [{
+                "transaction_id": item["transaction_id"],
+                "sku": item["sku"],
+                "quantity": item["quantity"],
+                "timestamp": item["timestamp"]
+            } for item in data]
+
+            return result
+    except Exception as e:
+        error_msg = str(e)
+        return {"error": error_msg}
+
+
+@mcp.tool()
+async def get_stock_levels(sku: str | None = None, min_stock: int | None = None, max_stock: int | None = None, limit: int = 100):
+    """
+    Get stock levels with optional filters.
+
+    Args:
+        sku (str, optional): Filter by product SKU.
+        min_stock (int, optional): Filter products with stock >= this value.
+        max_stock (int, optional): Filter products with stock <= this value.
+        limit (int): Maximum number of items to return. Default is 100.
+
+    Returns:
+        List of stock levels with SKU and stock on hand.
+    """
+    try:
+        async with AsyncClient() as client:
+            params = {"limit": limit}
+            if sku:
+                params["sku"] = sku
+            if min_stock is not None:
+                params["min_stock"] = min_stock
+            if max_stock is not None:
+                params["max_stock"] = max_stock
+
+            response = await client.get(f"{FASTAPI_BASE_URL}/stocks", params=params)
+            if response.status_code != HTTPStatus.OK:
+                error_msg = f"Error getting stock levels: {response.status_code}: {response.text}"
+                return {"error": error_msg}
+
+            data = response.json()
+            result = [{
+                "sku": item["sku"],
+                "stock_on_hand": item["stock_on_hand"]
+            } for item in data]
+
+            return result
+    except Exception as e:
+        error_msg = str(e)
+        return {"error": error_msg}
+
+
+@mcp.tool()
 async def order_product(sku: str, quantity: int):
     """
     Place an order for a product to replenish stock.

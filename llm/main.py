@@ -49,6 +49,15 @@ async def query_agent_post(request: QueryRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")
 
+@app.post("/agent/restock", response_model=QueryResponse)
+async def restock_agent_post():
+    try:
+        restock_query = "Based of the daily sales, determine the products that will run out of stock in the next 7 days. After identifying them, place orders to restock each products with its sufficient amount to last a least one week"
+        asyncio.create_task(run_query(restock_query))
+        return QueryResponse(response="Executing restock query...")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")
+
 @app.get("/health")
 async def health():
     return {"status": "healthy", "agent_loaded": agent is not None}

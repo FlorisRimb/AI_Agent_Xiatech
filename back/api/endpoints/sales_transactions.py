@@ -38,11 +38,31 @@ async def create_sale(sale: SalesTransaction):
 
 
 @router.get("", response_model=List[SalesTransaction])
-async def list_sales(days: int | None = None, limit: int = 100):
-    """List all sales transactions."""
+async def list_sales(
+    days: int | None = None,
+    sku: str | None = None,
+    min_quantity: int | None = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    limit: int = 100
+):
+    """List all sales transactions with optional filters."""
+    conditions = []
+
     if days is not None:
         cutoff_date = datetime.now() - timedelta(days=days)
-        sales = await SalesTransaction.find(SalesTransaction.timestamp >= cutoff_date).limit(limit).to_list()
+        conditions.append(SalesTransaction.timestamp >= cutoff_date)
+    if sku:
+        conditions.append(SalesTransaction.sku == sku)
+    if min_quantity is not None:
+        conditions.append(SalesTransaction.quantity >= min_quantity)
+    if start_date:
+        conditions.append(SalesTransaction.timestamp >= start_date)
+    if end_date:
+        conditions.append(SalesTransaction.timestamp <= end_date)
+
+    if conditions:
+        sales = await SalesTransaction.find(*conditions).limit(limit).to_list()
     else:
         sales = await SalesTransaction.find_all().limit(limit).to_list()
     return sales
