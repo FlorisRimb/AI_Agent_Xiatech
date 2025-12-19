@@ -40,9 +40,6 @@ async def create_sale(sale: SalesTransaction):
                 detail=f"Insufficient stock for {sale.sku}. Available: {stock.stock_on_hand}, Requested: {sale.quantity}"
             )
 
-        # Decrease stock
-        stock.stock_on_hand -= sale.quantity
-        await stock.save()
 
         await sale.insert()
         return sale

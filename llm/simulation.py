@@ -68,15 +68,14 @@ async def run_simulation(agent: RetailInventoryAgent, iterations: int):
         current_iteration_sales = []
 
         for iteration in range(1, iterations + 1):
-            # Generate data for 7 days
-            days_to_generate = 7
+            current_simulation_date = datetime.now()
 
             print(f"\n{'='*80}")
-            print(f"[SIMULATION] Iteration {iteration}/{iterations} - Generating {days_to_generate} days of data")
+            print(f"[SIMULATION] Iteration {iteration}/{iterations} - Date: {current_simulation_date.strftime('%Y-%m-%d')}")
             print(f"{'='*80}")
 
-            # Step 1: Generate random sales transactions for 7 days
-            print(f"\n[SIMULATION] Step 1: Generating random sales for {days_to_generate} days...")
+            # Step 1: Generate random sales transactions
+            print(f"\n[SIMULATION] Step 1: Generating random sales...")
             try:
                 # Get all products
                 products_response = await client.get(f"{base_url}/products")
@@ -85,55 +84,35 @@ async def run_simulation(agent: RetailInventoryAgent, iterations: int):
                 if not products:
                     print(f"[SIMULATION] No products found, skipping sales generation")
                 else:
-                    orders_per_day = max(20, 160 // iterations)
+                    orders_per_iteration = 80
                     max_items_per_order = 3
 
                     created_sales = 0
-                    rejected_sales = 0
                     total_items = 0
 
-                    # Generate sales for each of the past 7 days
-                    for day_offset in range(days_to_generate - 1, -1, -1):
-                        day_date = datetime.now() - timedelta(days=day_offset)
+                    for _ in range(orders_per_iteration):
+                        # Each order has 1-3 items
+                        num_items = random.randint(1, max_items_per_order)
+                        order_skus = random.sample(products, min(num_items, len(products)))
 
-                        for _ in range(orders_per_day):
-                            # Each order has 1-3 items
-                            num_items = random.randint(1, max_items_per_order)
-                            order_skus = random.sample(products, min(num_items, len(products)))
+                        for product in order_skus:
+                            quantity = random.randint(1, 20)
 
-                            # Random time during the day
-                            random_hour = random.randint(8, 22)
-                            random_minute = random.randint(0, 59)
-                            random_second = random.randint(0, 59)
-                            sale_timestamp = day_date.replace(
-                                hour=random_hour,
-                                minute=random_minute,
-                                second=random_second
-                            )
+                            # Create sale transaction with TODAY's timestamp
+                            sale_data = {
+                                "sku": product["sku"],
+                                "quantity": quantity,
+                                "timestamp": current_simulation_date.isoformat()
+                            }
+                            sale_response = await client.post(f"{base_url}/sales", json=sale_data)
+                            if sale_response.status_code == 201:
+                                created_sales += 1
+                                total_items += quantity
+                                # Track this sale to delete it at the end of iteration
+                                sale_result = sale_response.json()
+                                current_iteration_sales.append(sale_result["transaction_id"])
 
-                            for product in order_skus:
-                                quantity = random.randint(1, 20)
-
-                                # Create sale transaction
-                                sale_data = {
-                                    "sku": product["sku"],
-                                    "quantity": quantity,
-                                    "timestamp": sale_timestamp.isoformat()
-                                }
-                                sale_response = await client.post(f"{base_url}/sales", json=sale_data)
-                                if sale_response.status_code == 201:
-                                    created_sales += 1
-                                    total_items += quantity
-                                    # Track this sale to delete it at the end of iteration
-                                    sale_result = sale_response.json()
-                                    current_iteration_sales.append(sale_result["transaction_id"])
-                                elif sale_response.status_code == 400:
-                                    # Insufficient stock - this is expected behavior
-                                    rejected_sales += 1
-
-                    print(f"[SIMULATION] Created {created_sales} sales ({total_items} items total, ~{created_sales // days_to_generate} sales/day)")
-                    if rejected_sales > 0:
-                        print(f"[SIMULATION] Rejected {rejected_sales} sales due to insufficient stock")
+                    print(f"[SIMULATION] Created {created_sales} sales ({total_items} items total from {orders_per_iteration} orders)")
             except Exception as e:
                 print(f"[SIMULATION] Error generating sales: {e}")
                 import traceback
@@ -142,8 +121,59 @@ async def run_simulation(agent: RetailInventoryAgent, iterations: int):
             # Wait for sales to be processed
             await asyncio.sleep(0.5)
 
-            # Step 2: Run restock agent to check stock and place orders
-            print(f"\n[SIMULATION] Step 2: Running restock agent...")
+            # Step 2: Decrease stock based on sales
+            print(f"\n[SIMULATION] Step 2: Decreasing stock based on sales...")
+            try:
+                # Get sales for the current simulation day
+                day_start = current_simulation_date.replace(hour=0, minute=0, second=0, microsecond=0)
+                day_end = current_simulation_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+                sales_response = await client.get(
+                    f"{base_url}/sales",
+                    params={
+                        "start_date": day_start.isoformat(),
+                        "end_date": day_end.isoformat(),
+                        "limit": 1000
+                    }
+                )
+                iteration_sales = sales_response.json()
+
+                # Group sales by SKU and sum quantities
+                sales_by_sku = {}
+                for sale in iteration_sales:
+                    sku = sale["sku"]
+                    qty = sale["quantity"]
+                    sales_by_sku[sku] = sales_by_sku.get(sku, 0) + qty
+
+                # Update stock levels
+                stock_updates = 0
+                for sku, total_qty in sales_by_sku.items():
+                    stock_response = await client.get(f"{base_url}/stocks/{sku}")
+                    if stock_response.status_code == 200:
+                        stock = stock_response.json()
+                        new_stock = max(0, stock["stock_on_hand"] - total_qty)
+
+                        update_response = await client.put(
+                            f"{base_url}/stocks/{sku}",
+                            json={"stock_on_hand": new_stock}
+                        )
+
+                        if update_response.status_code == 200:
+                            print(f"[SIMULATION] Updated {sku}: {stock['stock_on_hand']} -> {new_stock} (sold: {total_qty})")
+                            stock_updates += 1
+
+                print(f"[SIMULATION] Updated stock for {stock_updates} products")
+            except Exception as e:
+                print(f"[SIMULATION] Error decreasing stock: {e}")
+                import traceback
+                traceback.print_exc()
+
+            # Wait for stock updates to propagate
+            await asyncio.sleep(0.5)
+
+
+            # Step 3: Run restock agent to check stock and place orders
+            print(f"\n[SIMULATION] Step 3: Running restock agent...")
             restock_query = "Based of the daily sales, determine the products that will run out of stock in the next 7 days. After identifying them, place orders to restock each products with its sufficient amount to last a least one week. If no products need restocking, simply respond with [DONE]."
             try:
                 response = await agent.run_with_tools(restock_query)
@@ -156,21 +186,15 @@ async def run_simulation(agent: RetailInventoryAgent, iterations: int):
             # Wait for agent to complete before continuing
             await asyncio.sleep(1)
 
-
-            # Step 3: Deliver some pending orders (random 70-100% of pending orders)
-            print(f"\n[SIMULATION] Step 3: Delivering pending orders...")
+            # Step 4: Deliver pending orders
+            print(f"\n[SIMULATION] Step 4: Delivering pending orders...")
             try:
                 orders_response = await client.get(f"{base_url}/orders?status=pending")
                 pending_orders = orders_response.json()
 
                 if pending_orders:
-                    # Randomly select 70-100% of orders to deliver
-                    delivery_rate = random.uniform(0.7, 1)
-                    num_to_deliver = max(1, int(len(pending_orders) * delivery_rate))
-                    orders_to_deliver = random.sample(pending_orders, min(num_to_deliver, len(pending_orders)))
-
                     delivered_count = 0
-                    for order in orders_to_deliver:
+                    for order in pending_orders:
                         # Update order status to completed (this automatically increases stock)
                         update_response = await client.put(
                             f"{base_url}/orders/{order['order_id']}",
@@ -192,9 +216,9 @@ async def run_simulation(agent: RetailInventoryAgent, iterations: int):
                 import traceback
                 traceback.print_exc()
 
-            # Step 4: Clean up sales from this iteration
+            # Step 5: Clean up sales from this iteration
             if current_iteration_sales:
-                print(f"\n[SIMULATION] Step 4: Cleaning up {len(current_iteration_sales)} sales from this iteration...")
+                print(f"\n[SIMULATION] Step 5: Cleaning up {len(current_iteration_sales)} sales from this iteration...")
                 deleted_count = 0
                 for transaction_id in current_iteration_sales:
                     try:
@@ -215,22 +239,21 @@ async def run_simulation(agent: RetailInventoryAgent, iterations: int):
 
 
 
+    # Restore original sales after simulation
+    if saved_sales:
+        print(f"\n{'='*80}")
+        print(f"[SIMULATION] Restoring {len(saved_sales)} original sales...")
+        restored = 0
+        for sale in saved_sales:
+            try:
+                # Remove the _id field if present (MongoDB internal field)
+                sale_data = {k: v for k, v in sale.items() if k != '_id' and k != 'id'}
+                await client.post(f"{base_url}/sales", json=sale_data)
+                restored += 1
+            except Exception as e:
+                print(f"[SIMULATION] Error restoring sale {sale.get('transaction_id')}: {e}")
 
-        # Restore original sales after simulation (inside the async with block)
-        if saved_sales:
-            print(f"\n{'='*80}")
-            print(f"[SIMULATION] Restoring {len(saved_sales)} original sales...")
-            restored = 0
-            for sale in saved_sales:
-                try:
-                    # Remove the _id field if present (MongoDB internal field)
-                    sale_data = {k: v for k, v in sale.items() if k != '_id' and k != 'id'}
-                    await client.post(f"{base_url}/sales", json=sale_data)
-                    restored += 1
-                except Exception as e:
-                    print(f"[SIMULATION] Error restoring sale {sale.get('transaction_id')}: {e}")
-
-            print(f"[SIMULATION] Restored {restored}/{len(saved_sales)} sales")
+        print(f"[SIMULATION] Restored {restored}/{len(saved_sales)} sales")
 
     print(f"\n{'='*80}")
     print(f"[SIMULATION] Simulation completed after {iterations} iterations")

@@ -137,7 +137,7 @@ Assistant:"""
                         print(f"[Agent] Generating response (iteration {current_iteration + 1})...)")
                     response = self.llm(
                         full_prompt,
-                        max_tokens=512,
+                        max_tokens=1024,
                         temperature=0.5,
                         stop=["[DONE]", "\n\n\n"],
                     )

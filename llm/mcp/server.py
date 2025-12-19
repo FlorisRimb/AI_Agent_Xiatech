@@ -49,6 +49,9 @@ async def soon_out_of_stock_products(days: int = 5):
 
             # Determine products that will run out in the given days
             result = []
+            LOW_STOCK_THRESHOLD = 50  # Products with stock below this are considered critically low
+            DEFAULT_ORDER_QUANTITY = 200
+
             for stock in stocks:
                 sku = stock["sku"]
                 current_stock = stock.get("virtual_stock", stock["stock_on_hand"])
@@ -57,39 +60,40 @@ async def soon_out_of_stock_products(days: int = 5):
                 # Calculate average daily sales (total sales / number of days analyzed)
                 average_daily_sales = total_sales / days if days > 0 else 0
 
-                # Calculate days until out of stock
+                # Check if stock is critically low (regardless of sales data)
+                if current_stock <= LOW_STOCK_THRESHOLD:
+                    # Stock is critically low - needs restocking
+                    if average_daily_sales > 0:
+                        # We have sales data - use it to calculate proper amount
+                        recommended_quantity = int(average_daily_sales * days * 4)  # 4 times the period
+                        recommended_quantity = max(recommended_quantity, DEFAULT_ORDER_QUANTITY)
+                    else:
+                        # No sales data but stock is low - order default amount
+                        recommended_quantity = DEFAULT_ORDER_QUANTITY
+
+                    result.append({
+                        "sku": sku,
+                        "current_stock": current_stock,
+                        "average_daily_sales": round(average_daily_sales, 2),
+                        "days_until_out_of_stock": 0 if average_daily_sales == 0 else round(current_stock / average_daily_sales, 2),
+                        "recommended_order_quantity": recommended_quantity
+                    })
+                    continue
+
+                # For products above threshold, check if they'll run out based on sales
                 if average_daily_sales > 0:
                     days_until_out = current_stock / average_daily_sales
-                    if days_until_out <= days:
-                        # Calculate recommended order quantity for 4 weeks of stock
-                        # Target: have enough for 28 days based on current sales rate
-                        target_stock = average_daily_sales * 28
+                    # If they will run out within the specified days in 4 times the period
+                    if days_until_out <= days*4:
+                        target_stock = average_daily_sales * days * 4
 
                         result.append({
                             "sku": sku,
                             "current_stock": current_stock,
                             "average_daily_sales": round(average_daily_sales, 2),
                             "days_until_out_of_stock": round(days_until_out, 2),
-                            "recommended_order_quantity": target_stock
+                            "recommended_order_quantity": int(target_stock)
                         })
-                elif current_stock == 0:
-                    # Already out of stock - recommend ordering based on recent sales or default
-                    if total_sales > 0:
-                        # Use average from the period
-                        avg_sales = total_sales / days
-                        recommended_quantity = int(avg_sales * 28)  # 4 weeks
-                        recommended_quantity = max(recommended_quantity, 300)
-                    else:
-                        # No sales history, use default
-                        recommended_quantity = 300
-
-                    result.append({
-                        "sku": sku,
-                        "current_stock": current_stock,
-                        "average_daily_sales": round(average_daily_sales, 2),
-                        "days_until_out_of_stock": 0,
-                        "recommended_order_quantity": recommended_quantity
-                    })
 
             return sorted(result, key=lambda x: x["days_until_out_of_stock"])
 
