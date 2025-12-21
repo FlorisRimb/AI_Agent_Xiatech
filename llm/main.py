@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import List
 from app_llm.agent import RetailInventoryAgent
 import asyncio
+import os
 
 app = FastAPI(title="LLM Agent API")
 
@@ -10,52 +11,72 @@ agent = None
 
 history: List[dict] = []
 
-queries = [
-    "Which products are likely to run out of stock in the next 3 days?",
-    #"Now that you have the list of products soon to be out of stock, get the current stock level for the 1st product on that list.",
-    #"Get the daily sales data for the product over the past 3 days.",
-    "Now that you have identified the products soon to be out of stock, order 200 units of each product to restock.",
-]
+class QueryRequest(BaseModel):
+    query: str
 
 class QueryResponse(BaseModel):
     response: str
 
-class HistoryResponse(BaseModel):
-    history: List[dict]
-
 @app.on_event("startup")
 async def startup():
     global agent
-    print("[API] Initializing agent...")
-    agent = RetailInventoryAgent("/app/models/mistral-7b-instruct-v0.2.Q4_K_M.gguf")
-    print("[API] Agent ready")
+    print("[Agent] Initializing agent...")
 
-@app.get("/agent/query", response_model=QueryResponse)
-async def query_agent():
+    model_path = "/app/qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf"
+
+    # Check if file exists and get size
+    if os.path.exists(model_path):
+        file_size = os.path.getsize(model_path)
+        print(f"[Agent] Model file found: {model_path}")
+        print(f"[Agent] Model file size: {file_size / (1024**3):.2f} GB")
+    else:
+        print(f"[Agent] ERROR: Model file not found at {model_path}")
+        return
+
     try:
-        asyncio.create_task(run_queries())
-        return QueryResponse(response="Executing queries...")
+        agent = RetailInventoryAgent(model_path)
+        print("[Agent] Agent ready")
+    except Exception as e:
+        print(f"[Agent] ERROR loading model: {e}")
+        import traceback
+        traceback.print_exc()
+
+@app.post("/agent/query", response_model=QueryResponse)
+async def query_agent_post(request: QueryRequest):
+    try:
+        asyncio.create_task(run_query(request.query))
+        return QueryResponse(response="Executing query...")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")
 
-@app.get("/agent/history", response_model=HistoryResponse)
-async def get_history():
-    return HistoryResponse(history=history)
+@app.post("/agent/restock", response_model=QueryResponse)
+async def restock_agent_post():
+    try:
+        restock_query = "Based of the daily sales, determine the products that will run out of stock in the next 7 days. After identifying them, place orders to restock each products with its sufficient amount to last a least one week. If no products need restocking, simply respond with [DONE]."
+        asyncio.create_task(run_query(restock_query))
+        return QueryResponse(response="Executing restock query...")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")
+
+@app.post("/agent/simulation", response_model=QueryResponse)
+async def simulation_agent_post(iterations: int = 5):
+    try:
+        from simulation import run_simulation
+        asyncio.create_task(run_simulation(agent, iterations))
+        return QueryResponse(response=f"Executing simulation for {iterations} iterations...")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Simulation error: {str(e)}")
+
 
 @app.get("/health")
 async def health():
     return {"status": "healthy", "agent_loaded": agent is not None}
 
-async def run_queries():
-    for query in queries:
-        print("\n" + "="*60)
-        response = await agent.run_with_tools(query, history)
-        history.append({"query": query, "response": response})
-        print(f"\n[Final Answer] {response}")
-        print(history)
-        print("="*60)
-
-    history.clear()
+async def run_query(user_query: str):
+    print("\n" + "="*60)
+    response = await agent.run_with_tools(user_query)
+    print(f"\n[Final Answer] {response}")
+    print("="*60)
 
 if __name__ == "__main__":
     import uvicorn

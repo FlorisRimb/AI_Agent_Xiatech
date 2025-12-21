@@ -4,6 +4,7 @@ from models.product import Product
 from models.sales_transaction import SalesTransaction
 from models.stock_level import StockLevel
 from models.product_order import ProductOrder
+from models.agent_history import AgentHistory
 from core.config import settings
 
 async def init_db():
@@ -14,7 +15,8 @@ async def init_db():
         Product,
         SalesTransaction,
         StockLevel,
-        ProductOrder
+        ProductOrder,
+        AgentHistory
     ])
 
     print(f"Database initialized: {db.name}")

@@ -10,7 +10,7 @@ RUN mkdir -p /app/models
 
 COPY . .
 
-#RUN hf download TheBloke/Mistral-7B-Instruct-v0.2-GGUF mistral-7b-instruct-v0.2.Q4_K_M.gguf --local-dir /app/models
+# RUN hf download Qwen/Qwen2.5-7B-Instruct-GGUF qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf --local-dir /app/models
 
 EXPOSE 5001
 

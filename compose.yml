@@ -34,6 +34,23 @@ services:
     networks:
       - retail_network
 
+  front:
+    build:
+      context: ./front
+      dockerfile: Dockerfile
+    container_name: front
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./front:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - back
+    networks:
+      - retail_network
+
   mongo-express:
     image: mongo-express:latest
     container_name: mongo-express

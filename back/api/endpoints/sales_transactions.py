@@ -1,37 +1,86 @@
 from fastapi import APIRouter, HTTPException, status
 from models.sales_transaction import SalesTransaction
 from models.product import Product
+from models.stock_level import StockLevel
 from typing import List
-from datetime import datetime
+from datetime import datetime, timedelta
+from pydantic import BaseModel
 
 router = APIRouter()
+
+
+class SalesTransactionUpdate(BaseModel):
+    sku: str | None = None
+    quantity: int | None = None
+    timestamp: datetime | None = None
 
 
 @router.post("", response_model=SalesTransaction, status_code=status.HTTP_201_CREATED)
 async def create_sale(sale: SalesTransaction):
     """Create a new sales transaction."""
-    product = await Product.find_one(Product.sku == sale.sku)
-    if not product:
+    try:
+        product = await Product.find_one(Product.sku == sale.sku)
+        if not product:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Product with SKU {sale.sku} not found"
+            )
+
+        # Check stock availability
+        stock = await StockLevel.find_one(StockLevel.sku == sale.sku)
+        if not stock:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Stock level not found for SKU {sale.sku}"
+            )
+
+        if stock.stock_on_hand < sale.quantity:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Insufficient stock for {sale.sku}. Available: {stock.stock_on_hand}, Requested: {sale.quantity}"
+            )
+
+
+        await sale.insert()
+        return sale
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[Sales] Error creating sale: {e}")
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Product with SKU {sale.sku} not found"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating sale: {str(e)}"
         )
-    
-    existing = await SalesTransaction.find_one(SalesTransaction.transaction_id == sale.transaction_id)
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Transaction with ID {sale.transaction_id} already exists"
-        )
-    
-    await sale.insert()
-    return sale
 
 
 @router.get("", response_model=List[SalesTransaction])
-async def list_sales(limit: int = 100, skip: int = 0):
-    """List all sales transactions."""
-    sales = await SalesTransaction.find_all().skip(skip).limit(limit).to_list()
+async def list_sales(
+    days: int | None = None,
+    sku: str | None = None,
+    min_quantity: int | None = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    limit: int = 100
+):
+    """List all sales transactions with optional filters."""
+    conditions = []
+
+    if days is not None:
+        cutoff_date = datetime.now() - timedelta(days=days)
+        conditions.append(SalesTransaction.timestamp >= cutoff_date)
+    if sku:
+        conditions.append(SalesTransaction.sku == sku)
+    if min_quantity is not None:
+        conditions.append(SalesTransaction.quantity >= min_quantity)
+    if start_date:
+        conditions.append(SalesTransaction.timestamp >= start_date)
+    if end_date:
+        conditions.append(SalesTransaction.timestamp <= end_date)
+
+    if conditions:
+        sales = await SalesTransaction.find(*conditions).limit(limit).to_list()
+    else:
+        sales = await SalesTransaction.find_all().limit(limit).to_list()
     return sales
 
 
@@ -50,9 +99,7 @@ async def get_sale(transaction_id: str):
 @router.put("/{transaction_id}", response_model=SalesTransaction)
 async def update_sale(
     transaction_id: str,
-    sku: str | None = None,
-    quantity: int | None = None,
-    timestamp: datetime | None = None
+    update_data: SalesTransactionUpdate
 ):
     """Update a sales transaction."""
     sale = await SalesTransaction.find_one(SalesTransaction.transaction_id == transaction_id)
@@ -61,27 +108,27 @@ async def update_sale(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Transaction {transaction_id} not found"
         )
-    
-    if sku is not None:
-        product = await Product.find_one(Product.sku == sku)
+
+    if update_data.sku is not None:
+        product = await Product.find_one(Product.sku == update_data.sku)
         if not product:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Product with SKU {sku} not found"
+                detail=f"Product with SKU {update_data.sku} not found"
             )
-        sale.sku = sku
-    
-    if quantity is not None:
-        if quantity < 1:
+        sale.sku = update_data.sku
+
+    if update_data.quantity is not None:
+        if update_data.quantity < 1:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Quantity must be at least 1"
             )
-        sale.quantity = quantity
-    
-    if timestamp is not None:
-        sale.timestamp = timestamp
-    
+        sale.quantity = update_data.quantity
+
+    if update_data.timestamp is not None:
+        sale.timestamp = update_data.timestamp
+
     await sale.save()
     return sale
 
@@ -95,5 +142,5 @@ async def delete_sale(transaction_id: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Transaction {transaction_id} not found"
         )
-    
+
     await sale.delete()

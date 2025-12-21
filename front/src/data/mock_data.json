@@ -1,0 +1,169 @@
+{
+  "products": [
+    {
+      "sku": "SKU-0001",
+      "name": "Product_1",
+      "category": "Electronics",
+      "price": 299.99
+    },
+    {
+      "sku": "SKU-0002",
+      "name": "Product_2",
+      "category": "Home",
+      "price": 149.5
+    },
+    {
+      "sku": "SKU-0003",
+      "name": "Product_3",
+      "category": "Clothing",
+      "price": 79.99
+    },
+    {
+      "sku": "SKU-0004",
+      "name": "Product_4",
+      "category": "Books",
+      "price": 24.99
+    },
+    {
+      "sku": "SKU-0005",
+      "name": "Product_5",
+      "category": "Toys",
+      "price": 45.99
+    },
+    {
+      "sku": "SKU-0006",
+      "name": "Product_6",
+      "category": "Electronics",
+      "price": 399.99
+    },
+    {
+      "sku": "SKU-0007",
+      "name": "Product_7",
+      "category": "Home",
+      "price": 89.99
+    },
+    {
+      "sku": "SKU-0008",
+      "name": "Product_8",
+      "category": "Clothing",
+      "price": 129.99
+    },
+    {
+      "sku": "SKU-0009",
+      "name": "Product_9",
+      "category": "Books",
+      "price": 19.99
+    },
+    {
+      "sku": "SKU-0010",
+      "name": "Product_10",
+      "category": "Toys",
+      "price": 34.99
+    }
+  ],
+  "sales": [
+    {
+      "transaction_id": "ORDER_10001",
+      "sku": "SKU-0001",
+      "timestamp": "2025-10-28T09:15:00",
+      "quantity": 2
+    },
+    {
+      "transaction_id": "ORDER_10001",
+      "sku": "SKU-0003",
+      "timestamp": "2025-10-28T09:15:00",
+      "quantity": 1
+    },
+    {
+      "transaction_id": "ORDER_10002",
+      "sku": "SKU-0002",
+      "timestamp": "2025-10-28T10:30:00",
+      "quantity": 3
+    },
+    {
+      "transaction_id": "ORDER_10003",
+      "sku": "SKU-0005",
+      "timestamp": "2025-10-28T11:45:00",
+      "quantity": 2
+    },
+    {
+      "transaction_id": "ORDER_10004",
+      "sku": "SKU-0001",
+      "timestamp": "2025-10-28T14:20:00",
+      "quantity": 1
+    },
+    {
+      "transaction_id": "ORDER_10005",
+      "sku": "SKU-0007",
+      "timestamp": "2025-10-28T15:10:00",
+      "quantity": 2
+    },
+    {
+      "transaction_id": "ORDER_10006",
+      "sku": "SKU-0004",
+      "timestamp": "2025-10-28T16:05:00",
+      "quantity": 4
+    },
+    {
+      "transaction_id": "ORDER_10007",
+      "sku": "SKU-0006",
+      "timestamp": "2025-10-28T17:30:00",
+      "quantity": 1
+    }
+  ],
+  "stock_levels": [
+    {
+      "sku": "SKU-0001",
+      "stock_on_hand": 451
+    },
+    {
+      "sku": "SKU-0002",
+      "stock_on_hand": 217
+    },
+    {
+      "sku": "SKU-0003",
+      "stock_on_hand": 41
+    },
+    {
+      "sku": "SKU-0004",
+      "stock_on_hand": 371
+    },
+    {
+      "sku": "SKU-0005",
+      "stock_on_hand": 42
+    },
+    {
+      "sku": "SKU-0006",
+      "stock_on_hand": 464
+    },
+    {
+      "sku": "SKU-0007",
+      "stock_on_hand": 127
+    },
+    {
+      "sku": "SKU-0008",
+      "stock_on_hand": 68
+    },
+    {
+      "sku": "SKU-0009",
+      "stock_on_hand": 47
+    },
+    {
+      "sku": "SKU-0010",
+      "stock_on_hand": 391
+    }
+  ],
+  "summary": {
+    "total_products": 10,
+    "total_sales": 16,
+    "total_revenue": 1749.91,
+    "low_stock_items": 3,
+    "sales_by_category": {
+      "Electronics": 3,
+      "Home": 5,
+      "Clothing": 1,
+      "Books": 4,
+      "Toys": 3
+    }
+  }
+}
