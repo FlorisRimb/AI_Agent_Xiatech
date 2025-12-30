@@ -6,7 +6,7 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 # Load API key
 load_dotenv()
-api_key = "AIzaSyDXjnUJ3ep5Dws1YyemQ5HyBdV7OAm7zlI"
+api_key = "your_api_key_here"
 
 if not api_key:
     raise ValueError("❌ Please set GEMINI_API_KEY in your .env file")
